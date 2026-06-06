@@ -1,0 +1,355 @@
+import { useState, useEffect } from 'react';
+import { useRoute, Link, useLocation } from 'wouter';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { useMemorialStore, UploadedFile } from '@/store/useMemorialStore';
+import { useAuthStore } from '@/store/useAuthStore';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { UploadZone } from '@/components/UploadZone';
+import { toast } from 'sonner';
+import { ChevronLeft, Save } from 'lucide-react';
+import imageCompression from 'browser-image-compression';
+
+const schema = z.object({
+  fullName: z.string().min(2, 'Введите полное имя'),
+  birthDate: z.string().min(1, 'Введите дату рождения'),
+  deathDate: z.string().min(1, 'Введите дату смерти'),
+  fatherName: z.string().optional(),
+  motherName: z.string().optional(),
+  epitaph: z.string().optional(),
+  address: z.string().optional(),
+  lat: z.number().optional(),
+  lng: z.number().optional()
+});
+
+export default function EditMemorial() {
+  const [, params] = useRoute('/memorial/:id/edit');
+  const [, setLocation] = useLocation();
+  const id = params?.id;
+  
+  const { user } = useAuthStore();
+  const { memorials, updateMemorial } = useMemorialStore();
+  
+  const memorial = memorials.find(m => m.id === id);
+  
+  const form = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      fullName: memorial?.fullName || '',
+      birthDate: memorial?.birthDate || '',
+      deathDate: memorial?.deathDate || '',
+      fatherName: memorial?.fatherName || '',
+      motherName: memorial?.motherName || '',
+      epitaph: memorial?.epitaph || '',
+      address: memorial?.graveLocation?.address || '',
+      lat: memorial?.graveLocation?.lat || 55.7558,
+      lng: memorial?.graveLocation?.lng || 37.6173
+    }
+  });
+
+  const [coverPhoto, setCoverPhoto] = useState<string | undefined>(memorial?.coverPhoto);
+  const [photos, setPhotos] = useState<UploadedFile[]>(memorial?.photos || []);
+  const [videos, setVideos] = useState<UploadedFile[]>(memorial?.videos || []);
+
+  useEffect(() => {
+    if (!memorial || (user && memorial.userId !== user.id && !user.isAdmin)) {
+      toast.error('Нет доступа');
+      setLocation('/cabinet');
+    }
+  }, [memorial, user, setLocation]);
+
+  if (!memorial) return null;
+
+  const getPackageLimits = (type: string) => {
+    switch (type) {
+      case 'standard': return { photos: 40, videos: 0 };
+      case 'premium': return { photos: 80, videos: 20 };
+      case 'max': return { photos: 200, videos: 60 };
+      default: return { photos: 40, videos: 0 };
+    }
+  };
+
+  const limits = getPackageLimits(memorial.packageType);
+  const usedVideoMinutes = videos.reduce((acc, v) => acc + (v.duration || 0) / 60, 0);
+
+  const onSubmit = (data: z.infer<typeof schema>) => {
+    updateMemorial(memorial.id, {
+      fullName: data.fullName,
+      birthDate: data.birthDate,
+      deathDate: data.deathDate,
+      fatherName: data.fatherName,
+      motherName: data.motherName,
+      epitaph: data.epitaph,
+      graveLocation: data.address ? {
+        address: data.address,
+        lat: data.lat || 0,
+        lng: data.lng || 0
+      } : undefined,
+      coverPhoto,
+      photos,
+      videos
+    });
+    
+    toast.success('Изменения сохранены');
+  };
+
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    try {
+      const compressed = await imageCompression(file, { maxSizeMB: 1, maxWidthOrHeight: 1920 });
+      setCoverPhoto(URL.createObjectURL(compressed));
+    } catch (err) {
+      toast.error('Ошибка загрузки обложки');
+    }
+  };
+
+  return (
+    <div className="container mx-auto px-4 py-8 max-w-4xl pb-24">
+      <div className="flex items-center gap-4 mb-8">
+        <Button variant="ghost" size="icon" asChild>
+          <Link href="/cabinet">
+            <ChevronLeft className="w-5 h-5" />
+          </Link>
+        </Button>
+        <div>
+          <h1 className="text-3xl font-serif font-medium">Редактирование</h1>
+          <p className="text-muted-foreground">Мемориал: {memorial.fullName}</p>
+        </div>
+      </div>
+
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+          
+          {/* Обложка */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Обложка страницы</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="h-64 rounded-xl border overflow-hidden bg-muted relative">
+                  {coverPhoto ? (
+                    <img src={coverPhoto} alt="Cover" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                      Нет обложки
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <Input type="file" accept="image/*" onChange={handleCoverUpload} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Основные данные */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Основные данные</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <FormField
+                control={form.control}
+                name="fullName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>ФИО усопшего</FormLabel>
+                    <FormControl><Input {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="birthDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Дата рождения</FormLabel>
+                      <FormControl><Input type="date" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="deathDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Дата смерти</FormLabel>
+                      <FormControl><Input type="date" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="fatherName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Отец</FormLabel>
+                      <FormControl><Input {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="motherName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Мать</FormLabel>
+                      <FormControl><Input {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={form.control}
+                name="epitaph"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Эпитафия</FormLabel>
+                    <FormControl><Textarea className="h-24 resize-none" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Место захоронения */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Место захоронения</CardTitle>
+              <CardDescription>Укажите координаты и адрес кладбища</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FormField
+                control={form.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Адрес текстом</FormLabel>
+                    <FormControl><Input placeholder="Например: Троекуровское кладбище, участок 4" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="lat"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Широта (Lat)</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="any" onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)} value={field.value || ''} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="lng"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Долгота (Lng)</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="any" onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)} value={field.value || ''} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Фотографии */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Фотогалерея</CardTitle>
+              <CardDescription>Пакет {memorial.packageType}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <UploadZone 
+                accept="image/*"
+                multiple={true}
+                usedCount={photos.length}
+                maxCount={limits.photos}
+                files={photos}
+                label="Загруженные фотографии"
+                unitLabel="фото"
+                onAdd={(newFiles) => {
+                  if (photos.length + newFiles.length > limits.photos) {
+                    toast.error(`Превышен лимит пакета (${limits.photos} фото)`);
+                    return;
+                  }
+                  setPhotos([...photos, ...newFiles]);
+                }}
+                onRemove={(id) => setPhotos(photos.filter(p => p.id !== id))}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Видео */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Видеоархив</CardTitle>
+              <CardDescription>Пакет {memorial.packageType}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {limits.videos > 0 ? (
+                <UploadZone 
+                  accept="video/*"
+                  multiple={true}
+                  usedCount={usedVideoMinutes}
+                  maxCount={limits.videos}
+                  files={videos}
+                  label="Загруженные видео"
+                  unitLabel="минут"
+                  onAdd={(newFiles) => {
+                    const newDuration = newFiles.reduce((acc, v) => acc + (v.duration || 0) / 60, 0);
+                    if (usedVideoMinutes + newDuration > limits.videos) {
+                      toast.error(`Превышен лимит пакета (${limits.videos} мин)`);
+                      return;
+                    }
+                    setVideos([...videos, ...newFiles]);
+                  }}
+                  onRemove={(id) => setVideos(videos.filter(v => v.id !== id))}
+                />
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  Загрузка видео недоступна на тарифе Standard.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="sticky bottom-0 left-0 right-0 bg-background/80 backdrop-blur-md p-4 border-t flex justify-end gap-4 z-20">
+            <Button type="button" variant="outline" asChild>
+              <Link href={`/memorial/${memorial.id}`}>Предпросмотр</Link>
+            </Button>
+            <Button type="submit">
+              <Save className="w-4 h-4 mr-2" />
+              Сохранить изменения
+            </Button>
+          </div>
+        </form>
+      </Form>
+    </div>
+  );
+}

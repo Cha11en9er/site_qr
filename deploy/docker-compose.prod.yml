@@ -1,0 +1,23 @@
+# Продакшен: API + Redis (PostgreSQL и S3 — managed в Yandex Cloud / отдельно)
+
+services:
+  api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_prod:/data
+
+volumes:
+  redis_prod:
