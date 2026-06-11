@@ -9,11 +9,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { AuthModal } from './AuthModal';
+import { scrollToId } from '@/lib/scroll';
 import { useState } from 'react';
-
-function scrollToSection(id: string) {
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
-}
 
 function NavLink({ sectionId, children }: { sectionId: string; children: React.ReactNode }) {
   const [location] = useLocation();
@@ -21,7 +18,7 @@ function NavLink({ sectionId, children }: { sectionId: string; children: React.R
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     if (location === '/') {
-      scrollToSection(sectionId);
+      scrollToId(sectionId);
     } else {
       window.location.href = `/#${sectionId}`;
     }
@@ -43,7 +40,7 @@ export function Header() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="site-header sticky top-0 z-50 w-full border-b bg-background/98 shadow-sm">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 text-primary hover:opacity-90 transition-opacity">
           <QrCode className="h-6 w-6" />

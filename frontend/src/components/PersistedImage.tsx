@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { resolveMediaUrl } from '@/lib/media-storage';
 
+const resolvedUrlCache = new Map<string, string>();
+
 interface PersistedImageProps {
   src?: string;
   alt: string;
@@ -12,15 +14,27 @@ export function PersistedImage({ src, alt, className, fallback }: PersistedImage
   const [resolved, setResolved] = useState<string | undefined>();
 
   useEffect(() => {
+    if (!src) {
+      setResolved(undefined);
+      return;
+    }
+
+    const cached = resolvedUrlCache.get(src);
+    if (cached) {
+      setResolved(cached);
+      return;
+    }
+
     let objectUrl: string | undefined;
     let cancelled = false;
 
     void resolveMediaUrl(src).then((url) => {
-      if (cancelled) {
-        if (url?.startsWith('blob:')) URL.revokeObjectURL(url);
-        return;
+      if (cancelled || !url) return;
+      if (url.startsWith('blob:')) {
+        objectUrl = url;
+      } else {
+        resolvedUrlCache.set(src, url);
       }
-      objectUrl = url;
       setResolved(url);
     });
 

@@ -430,7 +430,7 @@ export default function EditMemorial() {
             </CardContent>
           </Card>
 
-          <div className="sticky bottom-0 left-0 right-0 bg-background/80 backdrop-blur-md p-4 border-t flex justify-end gap-4 z-20">
+          <div className="sticky bottom-0 left-0 right-0 bg-background border-t p-4 flex justify-end gap-4 z-20">
             <Button type="button" variant="outline" asChild>
               <Link href={`/memorial/${memorial.id}`}>Предпросмотр</Link>
             </Button>

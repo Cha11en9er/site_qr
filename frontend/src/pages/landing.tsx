@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { QrCode, BookOpen, Clock, Heart, ChevronRight, Check, ExternalLink } from 'lucide-react';
+import { QrCode, BookOpen, Clock, Heart, Check, ExternalLink } from 'lucide-react';
 import { Link } from 'wouter';
 import { DEMO_MEMORIALS } from '@/data/demo-memorials';
 import { PersistedImage } from '@/components/PersistedImage';
@@ -13,38 +12,25 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { PurchaseModal } from '@/components/PurchaseModal';
-import { QRCodeSVG } from 'qrcode.react';
+import { scrollToHash, scrollToId } from '@/lib/scroll';
 
 export default function LandingPage() {
   const [isPurchaseOpen, setIsPurchaseOpen] = useState(false);
 
   useEffect(() => {
-    const hash = window.location.hash.slice(1);
-    if (hash) {
-      requestAnimationFrame(() => {
-        document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth' });
-      });
-    }
+    scrollToHash(window.location.hash);
   }, []);
 
   return (
     <div className="w-full">
       {/* Hero Section */}
       <section className="relative min-h-[85vh] flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-[#F2EFE8] to-[#FAF7F2] -z-10" />
-        
-        {/* Soft decorative elements */}
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')] opacity-40 mix-blend-overlay -z-10" />
-        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-[#E5DCC5] blur-3xl opacity-50 -z-10" />
-        <div className="absolute -bottom-[20%] -right-[10%] w-[60%] h-[60%] rounded-full bg-[#E5DCC5] blur-3xl opacity-50 -z-10" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#F2EFE8] to-[#FAF7F2] -z-10 pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(229,220,197,0.45),transparent_55%)] -z-10 pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(229,220,197,0.35),transparent_50%)] -z-10 pointer-events-none" />
 
         <div className="container px-4 py-16 mx-auto text-center z-10 flex flex-col items-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-            className="w-full flex flex-col items-center"
-          >
+          <div className="landing-hero-in w-full flex flex-col items-center">
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-serif font-medium text-foreground tracking-tight max-w-4xl mx-auto leading-tight mb-6">
               Вечная память <br className="hidden md:block" />в одном QR-коде
             </h1>
@@ -65,17 +51,17 @@ export default function LandingPage() {
                 variant="outline"
                 size="lg"
                 className="h-14 px-8 text-lg rounded-full"
-                asChild
+                onClick={() => scrollToId('examples')}
               >
-                <a href="#examples">Посмотреть примеры</a>
+                Посмотреть примеры
               </Button>
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
       {/* How it works */}
-      <section id="how-it-works" className="py-24 bg-background scroll-mt-20">
+      <section id="how-it-works" className="page-section py-24 bg-background scroll-mt-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-serif font-medium mb-4">Как это работает</h2>
@@ -89,27 +75,20 @@ export default function LandingPage() {
               { icon: Heart, title: "3. Фото и видео", desc: "Загрузите медиафайлы, которые расскажут историю жизни близкого." },
               { icon: Clock, title: "4. Память навсегда", desc: "Прикрепите табличку к памятнику. Любой сможет открыть страницу, отсканировав код." }
             ].map((step, i) => (
-              <motion.div 
-                key={i}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: i * 0.1 }}
-                className="text-center group"
-              >
+              <div key={i} className="text-center group">
                 <div className="w-16 h-16 mx-auto bg-card border rounded-2xl flex items-center justify-center mb-6 group-hover:bg-primary/5 transition-colors">
                   <step.icon className="w-7 h-7 text-primary" />
                 </div>
                 <h3 className="font-medium text-lg mb-3">{step.title}</h3>
                 <p className="text-muted-foreground text-sm leading-relaxed">{step.desc}</p>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
       {/* Pricing */}
-      <section id="pricing" className="py-24 bg-card scroll-mt-20">
+      <section id="pricing" className="page-section py-24 bg-card scroll-mt-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-serif font-medium mb-4">Наши пакеты</h2>
@@ -187,7 +166,7 @@ export default function LandingPage() {
       </section>
 
       {/* Example memorial pages */}
-      <section id="examples" className="py-24 bg-background scroll-mt-20">
+      <section id="examples" className="page-section py-24 bg-background scroll-mt-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-serif font-medium mb-4">Примеры страниц памяти</h2>
@@ -240,7 +219,7 @@ export default function LandingPage() {
       </section>
 
       {/* Testimonials */}
-      <section className="py-24 bg-card overflow-hidden">
+      <section className="page-section py-24 bg-card overflow-hidden">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-serif font-medium mb-4">Отзывы</h2>
@@ -269,7 +248,7 @@ export default function LandingPage() {
       </section>
 
       {/* FAQ */}
-      <section className="py-24 bg-card">
+      <section className="page-section py-24 bg-card">
         <div className="container mx-auto px-4 max-w-3xl">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-serif font-medium mb-4">Частые вопросы</h2>

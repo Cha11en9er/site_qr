@@ -287,3 +287,47 @@
 .memorial-map .leaflet-control-attribution {
   display: none !important;
 }
+
+/* --- Прокрутка: плавные якоря, меньше фризов --- */
+html {
+  scroll-padding-top: 5rem;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+.site-header {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.page-section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 720px;
+}
+
+.landing-hero-in {
+  animation: landing-fade-up 0.7s ease-out both;
+}
+
+@keyframes landing-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-hero-in {
+    animation: none;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+}
