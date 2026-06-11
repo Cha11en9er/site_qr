@@ -220,7 +220,7 @@ git clone https://github.com/Cha11en9er/site_qr.git site_qr
 cd site_qr
 ```
 
-> **Важно:** на GitHub должны быть файлы `deploy/docker-compose.staging.yml` и `deploy/Dockerfile.staging-web`. Если вы их ещё не пушили с Windows — сначала `git push`, либо [§3.2](#32-альтернатива-архив-с-windows).
+> **Важно:** на GitHub должны быть `docker-compose.staging.yml` (в корне) и `deploy/Dockerfile.staging-web`. Если ещё не пушили с Windows — сначала `git push`, либо [§3.2](#32-альтернатива-архив-с-windows).
 
 ---
 
@@ -250,16 +250,16 @@ cd /opt/site_qr
 
 ---
 
-### 3.3 Проверить, что deploy-файлы на месте
+### 3.3 Проверить, что файлы деплоя на месте
 
 ```bash
-ls deploy/docker-compose.staging.yml
+ls docker-compose.staging.yml
 ```
 
 **Ожидается:**
 
 ```text
-deploy/docker-compose.staging.yml
+docker-compose.staging.yml
 ```
 
 ```bash
@@ -344,6 +344,50 @@ mkdir -p uploads
 
 ---
 
+### 4.5 Проверить `.env` перед запуском
+
+Файл должен лежать в **корне** `/opt/site_qr/.env`, не в `deploy/`.
+
+```bash
+ls -la .env
+```
+
+**Ожидается:** файл есть, размер > 0.
+
+```bash
+grep -c '^POSTGRES_PASSWORD=.' .env
+```
+
+**Ожидается:** `1` (строка есть и после `=` что-то написано).
+
+```bash
+grep '^POSTGRES_PASSWORD=' .env | cut -d= -f1
+```
+
+**Ожидается:** `POSTGRES_PASSWORD` (без пробелов вокруг `=`).
+
+Частые ошибки:
+
+| Ошибка | Как выглядит | Исправление |
+|--------|--------------|-------------|
+| Пустой пароль | `POSTGRES_PASSWORD=` | Заполнить значение |
+| Пробелы | `POSTGRES_PASSWORD = xxx` | Убрать пробелы: `POSTGRES_PASSWORD=xxx` |
+| Кавычки с пробелом | `POSTGRES_PASSWORD=" mypass"` | Без лишних пробелов |
+| Файл не там | `.env` не в корне | Должен быть `/opt/site_qr/.env` (рядом с `docker-compose.staging.yml`) |
+| Скопировали с Windows | `^M` в конце строк | `sed -i 's/\r$//' .env` |
+
+> **Роль `qr_app` вручную создавать не нужно.** Контейнер `postgres` сам создаёт пользователя `POSTGRES_USER` с паролем `POSTGRES_PASSWORD` и накатывает схему из `db/scripts/00_full_schema.sql` при первом старте.
+
+В `.env` с локальной машины замените хост БД в `DATABASE_URL` — compose подставит `postgres` сам, но для ясности:
+
+```env
+DATABASE_URL=postgresql+asyncpg://qr_app:ВАШ_ПАРОЛЬ@postgres:5432/qr_pamyat
+```
+
+(`postgres` — имя сервиса в Docker, **не** `localhost`.)
+
+---
+
 ## Шаг 5. Зависимости и запуск
 
 На сервере **не нужны** `python -m venv` и `npm install` вручную.
@@ -364,8 +408,10 @@ cd /opt/site_qr
 ```
 
 ```bash
-docker compose -f deploy/docker-compose.staging.yml up -d --build
+docker compose -f docker-compose.staging.yml up -d --build
 ```
+
+Compose и `.env` — оба в корне `/opt/site_qr`, дополнительные флаги не нужны.
 
 Первый запуск занимает несколько минут (скачивание образов, сборка).
 
@@ -374,7 +420,7 @@ docker compose -f deploy/docker-compose.staging.yml up -d --build
 ### 5.2 Проверить контейнеры
 
 ```bash
-docker compose -f deploy/docker-compose.staging.yml ps
+docker compose -f docker-compose.staging.yml ps
 ```
 
 **Ожидается:** три сервиса `postgres`, `api`, `web` — статус `running`.
@@ -382,15 +428,15 @@ docker compose -f deploy/docker-compose.staging.yml ps
 **Если `Exited`** — смотрите логи:
 
 ```bash
-docker compose -f deploy/docker-compose.staging.yml logs api
+docker compose -f docker-compose.staging.yml logs api
 ```
 
 ```bash
-docker compose -f deploy/docker-compose.staging.yml logs web
+docker compose -f docker-compose.staging.yml logs web
 ```
 
 ```bash
-docker compose -f deploy/docker-compose.staging.yml logs postgres
+docker compose -f docker-compose.staging.yml logs postgres
 ```
 
 ---
@@ -398,7 +444,7 @@ docker compose -f deploy/docker-compose.staging.yml logs postgres
 ### 5.3 Перезапуск после смены `.env`
 
 ```bash
-docker compose -f deploy/docker-compose.staging.yml up -d --build
+docker compose -f docker-compose.staging.yml up -d --build
 ```
 
 ---
@@ -453,7 +499,7 @@ http://87.251.86.53/
 2. На сервере:
 
 ```bash
-docker compose -f deploy/docker-compose.staging.yml exec postgres psql -U qr_app -d qr_pamyat -c "SELECT email FROM qr.users LIMIT 5;"
+docker compose -f docker-compose.staging.yml exec postgres psql -U qr_app -d qr_pamyat -c "SELECT email FROM qr.users LIMIT 5;"
 ```
 
 **Ожидается:** строка с вашим email.
@@ -527,7 +573,7 @@ git pull
 ```
 
 ```bash
-docker compose -f deploy/docker-compose.staging.yml up -d --build
+docker compose -f docker-compose.staging.yml up -d --build
 ```
 
 ---
@@ -547,8 +593,9 @@ docker compose -f deploy/docker-compose.staging.yml up -d --build
 | Симптом | Решение |
 |---------|---------|
 | Сайт не открывается снаружи | §1.6 → `ufw allow 80/tcp` |
-| `deploy/docker-compose.staging.yml` нет | §3.2 архив или `git push` + clone |
-| `package_types_count` не 3 | `docker compose … logs postgres`, при необходимости `down -v` и снова `up --build` |
+| `docker-compose.staging.yml` нет | §3.2 архив или `git push` + clone |
+| `POSTGRES_PASSWORD is missing` | `.env` в корне `/opt/site_qr`, §4.5; запуск: `-f docker-compose.staging.yml` |
+| `package_types_count` не 3 | `docker compose -f docker-compose.staging.yml logs postgres`, при необходимости `down -v` и снова `up --build` |
 | CORS в браузере | В `.env` точно `CORS_ORIGINS=http://87.251.86.53` |
 | `YOOKASSA_NOT_CONFIGURED` | Заполнить `YOOKASSA_SHOP_ID` и `YOOKASSA_SECRET_KEY` в `.env`, перезапуск §5.3 |
 | Оплата прошла, заказ не `paid` | §6.6 часть B — ngrok для webhook |
@@ -563,7 +610,8 @@ docker compose -f deploy/docker-compose.staging.yml up -d --build
 □ 2.4 ufw allow 80/tcp
 □ 3.1 git clone в /opt/site_qr
 □ 4.1–4.4 .env создан и заполнен
-□ 5.1 docker compose up -d --build
+□ 4.5 .env проверен (POSTGRES_PASSWORD не пустой)
+□ 5.1 docker compose -f docker-compose.staging.yml up -d --build
 □ 6.1–6.3 health + сайт в браузере
 □ 6.4 регистрация видна в БД
 □ 6.5 фото в uploads/
