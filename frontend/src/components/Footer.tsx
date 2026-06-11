@@ -15,8 +15,9 @@ export function Footer() {
             <h4 className="font-medium mb-4 text-foreground">Навигация</h4>
             <ul className="space-y-2 text-muted-foreground">
               <li><Link href="/" className="hover:text-primary transition-colors">Главная</Link></li>
-              <li><Link href="/#how-it-works" className="hover:text-primary transition-colors">О сервисе</Link></li>
-              <li><Link href="/#pricing" className="hover:text-primary transition-colors">Тарифы</Link></li>
+              <li><a href="/#how-it-works" className="hover:text-primary transition-colors">О сервисе</a></li>
+              <li><a href="/#examples" className="hover:text-primary transition-colors">Примеры</a></li>
+              <li><a href="/#pricing" className="hover:text-primary transition-colors">Тарифы</a></li>
             </ul>
           </div>
           <div>

@@ -4,7 +4,8 @@ import { persist } from 'zustand/middleware';
 export interface UploadedFile {
   id: string;
   name: string;
-  url: string; // object URL or base64
+  url: string; // URL для отображения (/api/v1/media/files/...)
+  storageKey?: string; // относительный путь в БД: memorials/{uuid}/photos/...
   size: number;
   type: string;
   duration?: number; // for video, in seconds
@@ -31,6 +32,8 @@ export interface Memorial {
   motherName?: string;
   epitaph?: string;
   coverPhoto?: string;
+  coverStorageKey?: string;
+  isPublished?: boolean;
   mainPhoto?: string;
   gravePhoto?: string;
   graveLocation?: { lat: number; lng: number; address: string };
@@ -45,6 +48,7 @@ interface MemorialState {
   memorials: Memorial[];
   createMemorial: (memorial: Omit<Memorial, 'id' | 'createdAt' | 'photos' | 'videos' | 'memories'>) => Memorial;
   updateMemorial: (id: string, updates: Partial<Memorial>) => void;
+  upsertMemorial: (memorial: Memorial) => void;
   deleteMemorial: (id: string) => void;
   addMemory: (memorialId: string, memory: Omit<Memory, 'id' | 'createdAt' | 'approved'>) => void;
   approveMemory: (memorialId: string, memoryId: string) => void;
@@ -99,6 +103,19 @@ export const useMemorialStore = create<MemorialState>()(
         set(state => ({
           memorials: state.memorials.map(m => m.id === id ? { ...m, ...updates } : m)
         }));
+      },
+      upsertMemorial: (memorial) => {
+        set(state => {
+          const exists = state.memorials.some(m => m.id === memorial.id);
+          if (exists) {
+            return {
+              memorials: state.memorials.map(m =>
+                m.id === memorial.id ? { ...m, ...memorial } : m
+              ),
+            };
+          }
+          return { memorials: [memorial, ...state.memorials] };
+        });
       },
       deleteMemorial: (id) => {
         set(state => ({

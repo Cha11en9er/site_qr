@@ -28,9 +28,30 @@ class Settings(BaseSettings):
     jwt_refresh_expire_days: int = 7
     cors_origins: str = "http://localhost:5173"
 
+    yookassa_shop_id: str = ""
+    yookassa_secret_key: str = ""
+    yookassa_return_url: str = "http://127.0.0.1:5173/order/success"
+    yookassa_webhook_secret: str = ""
+
+    # Корень файлов на диске (абсолютный или относительный к корню проекта).
+    # В БД хранятся только относительные ключи: memorials/{uuid}/photos/...
+    media_storage_root: str = "uploads"
+    media_storage_bucket: str = "local"
+
+    @property
+    def media_root_path(self) -> Path:
+        root = Path(self.media_storage_root)
+        if not root.is_absolute():
+            root = PROJECT_ROOT / root
+        return root.resolve()
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def yookassa_configured(self) -> bool:
+        return bool(self.yookassa_shop_id and self.yookassa_secret_key)
 
 
 @lru_cache

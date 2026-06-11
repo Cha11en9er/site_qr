@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Input } from '@/components/ui/input';
@@ -9,12 +8,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { QRCodeSVG } from 'qrcode.react';
-import { CheckCircle2, ChevronRight, ChevronLeft, Loader2, Minus, Plus } from 'lucide-react';
-import { useOrderStore } from '@/store/useOrderStore';
+import { ChevronRight, ChevronLeft, Loader2, Minus, Plus } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { toast } from 'sonner';
-import { Link } from 'wouter';
+import { createCheckout } from '@/lib/payments-api';
+import { ApiError } from '@/lib/api';
 
 const packages = [
   { id: 'standard', name: 'Standard', price: 2990 },
@@ -34,10 +32,8 @@ const formSchema = z.object({
 export function PurchaseModal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const [step, setStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [successOrder, setSuccessOrder] = useState<any>(null);
-  
+
   const { user } = useAuthStore();
-  const { createOrder } = useOrderStore();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -67,32 +63,38 @@ export function PurchaseModal({ open, onOpenChange }: { open: boolean; onOpenCha
 
   const handlePayment = async () => {
     setIsProcessing(true);
-    // Mock processing delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
     const data = form.getValues();
-    const order = createOrder({
-      userId: user?.id || 'guest',
-      email: data.email,
-      deceasedName: data.deceasedName,
-      packageType: data.packageType,
-      quantity: data.quantity,
-      totalPrice: total,
-      deliveryAddress: data.deliveryAddress,
-      phone: data.phone
-    });
-    
-    setSuccessOrder(order);
-    setIsProcessing(false);
-    setStep(4);
+
+    try {
+      const result = await createCheckout({
+        package_type: data.packageType,
+        quantity: data.quantity,
+        deceased_name: data.deceasedName,
+        email: data.email,
+        phone: data.phone,
+        delivery_address: data.deliveryAddress,
+      });
+
+      sessionStorage.setItem('pending_order_id', result.order_id);
+      window.location.href = result.confirmation_url;
+    } catch (error) {
+      setIsProcessing(false);
+      if (error instanceof ApiError) {
+        if (error.detail === 'YOOKASSA_NOT_CONFIGURED') {
+          toast.error('ЮKassa не настроена. Добавьте YOOKASSA_SHOP_ID и YOOKASSA_SECRET_KEY в .env');
+        } else {
+          toast.error(error.detail);
+        }
+      } else {
+        toast.error('Не удалось создать платёж. Проверьте подключение к серверу.');
+      }
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={(v) => {
-      if (!v && step === 4) {
-        // Reset on close if finished
+      if (!v) {
         setStep(1);
-        setSuccessOrder(null);
         form.reset();
       }
       onOpenChange(v);
@@ -100,10 +102,8 @@ export function PurchaseModal({ open, onOpenChange }: { open: boolean; onOpenCha
       <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden bg-background">
         <div className="p-6">
           <DialogHeader className="mb-6">
-            <DialogTitle className="font-serif text-2xl">
-              {step === 4 ? 'Оформление завершено' : 'Оформление заказа'}
-            </DialogTitle>
-            {step < 4 && (
+            <DialogTitle className="font-serif text-2xl">Оформление заказа</DialogTitle>
+            {step <= 3 && (
               <div className="flex items-center gap-2 mt-4 text-sm text-muted-foreground">
                 <span className={step >= 1 ? "text-primary font-medium" : ""}>Пакет</span>
                 <ChevronRight className="w-4 h-4" />
@@ -229,48 +229,27 @@ export function PurchaseModal({ open, onOpenChange }: { open: boolean; onOpenCha
                 </div>
               </div>
 
-              <Button 
-                onClick={handlePayment} 
-                size="lg" 
-                className="w-full text-lg h-14" 
+              <Button
+                onClick={handlePayment}
+                size="lg"
+                className="w-full text-lg h-14"
                 disabled={isProcessing}
               >
                 {isProcessing ? (
-                  <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Обработка...</>
+                  <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Переход к оплате…</>
                 ) : (
-                  `Оплатить ${total} ₽`
+                  `Оплатить ${total} ₽ через ЮKassa`
                 )}
               </Button>
+              <p className="text-xs text-center text-muted-foreground">
+                Вы будете перенаправлены на защищённую страницу оплаты ЮKassa
+              </p>
               <div className="text-center">
                 <Button variant="ghost" onClick={() => setStep(2)} disabled={isProcessing}>Назад</Button>
               </div>
             </div>
           )}
 
-          {step === 4 && successOrder && (
-            <div className="space-y-6 text-center animate-in fade-in zoom-in-95">
-              <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle2 className="w-10 h-10" />
-              </div>
-              <h3 className="text-2xl font-medium">Оплата прошла успешно!</h3>
-              <p className="text-muted-foreground">
-                QR-коды и чек отправлены на {successOrder.email}
-              </p>
-
-              <div className="flex flex-wrap justify-center gap-4 py-4">
-                {successOrder.qrCodes.map((qrId: string, idx: number) => (
-                  <div key={qrId} className="flex flex-col items-center gap-2 p-3 border rounded-xl bg-white">
-                    <span className="text-xs font-medium text-muted-foreground">Код #{idx + 1}</span>
-                    <QRCodeSVG value={`https://qr-memory.ru/memorial/${qrId}`} size={80} />
-                  </div>
-                ))}
-              </div>
-
-              <Button onClick={() => onOpenChange(false)} asChild className="w-full">
-                <Link href="/cabinet">Перейти в личный кабинет</Link>
-              </Button>
-            </div>
-          )}
         </div>
       </DialogContent>
     </Dialog>

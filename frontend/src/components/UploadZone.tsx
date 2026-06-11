@@ -4,6 +4,11 @@ import { UploadCloud, X, Film, Image as ImageIcon } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import { Progress } from '@/components/ui/progress';
 import { UploadedFile } from '@/store/useMemorialStore';
+import { persistFile, removePersistedUrl } from '@/lib/media-storage';
+import { PersistedImage } from '@/components/PersistedImage';
+import { uploadMedia, deleteMedia } from '@/lib/media-api';
+import { isUuid } from '@/lib/memorials-api';
+import { toast } from 'sonner';
 
 interface UploadZoneProps {
   accept: string;
@@ -16,6 +21,7 @@ interface UploadZoneProps {
   onRemove: (id: string) => void;
   label: string;
   unitLabel: 'фото' | 'минут';
+  memorialId?: string;
 }
 
 export function UploadZone({
@@ -28,7 +34,8 @@ export function UploadZone({
   onAdd,
   onRemove,
   label,
-  unitLabel
+  unitLabel,
+  memorialId,
 }: UploadZoneProps) {
   const isVideo = accept.includes('video');
   const percentUsed = Math.min(100, Math.round((usedCount / maxCount) * 100)) || 0;
@@ -37,47 +44,89 @@ export function UploadZone({
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const newFiles: UploadedFile[] = [];
     
+    const useServer = memorialId && isUuid(memorialId);
+
     for (const file of acceptedFiles) {
+      if (useServer) {
+        try {
+          const uploadFile = isVideo
+            ? file
+            : await imageCompression(file, {
+                maxSizeMB: 1.5,
+                maxWidthOrHeight: 1920,
+                useWebWorker: true,
+              });
+
+          const mediaType = isVideo ? 'video' : 'photo';
+          const result = await uploadMedia(memorialId, mediaType, uploadFile);
+
+          let duration: number | undefined;
+          if (isVideo) {
+            const video = document.createElement('video');
+            video.preload = 'metadata';
+            duration = await new Promise<number>((resolve) => {
+              video.onloadedmetadata = () => resolve(video.duration);
+              video.src = URL.createObjectURL(file);
+            });
+          }
+
+          newFiles.push({
+            id: result.id,
+            name: result.original_filename,
+            url: result.url,
+            storageKey: result.storage_key,
+            size: result.size_bytes,
+            type: result.mime_type,
+            duration,
+            thumbnail: isVideo ? undefined : result.url,
+          });
+        } catch (error) {
+          console.error('Upload error:', error);
+          toast.error('Не удалось загрузить файл на сервер');
+        }
+        continue;
+      }
+
       if (isVideo) {
-        // Handle video
-        const url = URL.createObjectURL(file);
+        const id = `vid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const url = await persistFile(file, id);
         const video = document.createElement('video');
         video.preload = 'metadata';
-        
+
         await new Promise((resolve) => {
           video.onloadedmetadata = () => {
             newFiles.push({
-              id: `vid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              id,
               name: file.name,
               url,
               size: file.size,
               type: file.type,
-              duration: video.duration
+              duration: video.duration,
             });
             resolve(null);
           };
-          video.src = url;
+          video.src = URL.createObjectURL(file);
         });
       } else {
-        // Handle image compression
         try {
           const compressedFile = await imageCompression(file, {
             maxSizeMB: 1.5,
             maxWidthOrHeight: 1920,
-            useWebWorker: true
+            useWebWorker: true,
           });
-          const url = URL.createObjectURL(compressedFile);
-          
+          const id = `img-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          const url = await persistFile(compressedFile, id);
+
           newFiles.push({
-            id: `img-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            id,
             name: file.name,
             url,
             size: compressedFile.size,
             type: compressedFile.type,
-            thumbnail: url
+            thumbnail: url,
           });
         } catch (error) {
-          console.error("Error compressing image:", error);
+          console.error('Error compressing image:', error);
         }
       }
     }
@@ -85,7 +134,7 @@ export function UploadZone({
     if (newFiles.length > 0) {
       onAdd(newFiles);
     }
-  }, [isVideo, onAdd]);
+  }, [isVideo, memorialId, onAdd]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -131,13 +180,21 @@ export function UploadZone({
                   <span className="text-xs font-mono mt-1">{file.duration ? Math.round(file.duration) + 's' : ''}</span>
                 </div>
               ) : (
-                <img src={file.thumbnail || file.url} alt={file.name} className="w-full h-full object-cover" />
+                <PersistedImage src={file.thumbnail || file.url} alt={file.name} className="w-full h-full object-cover" />
               )}
               
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
+                  if (memorialId && isUuid(memorialId) && isUuid(file.id)) {
+                    void deleteMedia(file.id).catch(() => toast.error('Не удалось удалить файл'));
+                  } else {
+                    void removePersistedUrl(file.url);
+                    if (file.thumbnail && file.thumbnail !== file.url) {
+                      void removePersistedUrl(file.thumbnail);
+                    }
+                  }
                   onRemove(file.id);
                 }}
                 className="absolute top-1 right-1 bg-black/60 hover:bg-black/80 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"

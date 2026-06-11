@@ -17,6 +17,7 @@ import CabinetSettings from "@/pages/cabinet/settings";
 import PublicMemorial from "@/pages/memorial/public";
 import EditMemorial from "@/pages/memorial/edit";
 import AdminPanel from "@/pages/admin";
+import OrderSuccessPage from "@/pages/order-success";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,7 @@ function Router() {
           <Route path="/cabinet/settings" component={() => <CabinetLayout><CabinetSettings /></CabinetLayout>} />
           <Route path="/memorial/:id" component={PublicMemorial} />
           <Route path="/memorial/:id/edit" component={EditMemorial} />
+          <Route path="/order/success" component={OrderSuccessPage} />
           <Route path="/admin" component={AdminPanel} />
           <Route component={NotFound} />
         </Switch>

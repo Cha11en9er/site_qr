@@ -1,6 +1,17 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRoute, Link } from 'wouter';
 import { useMemorialStore, Memory } from '@/store/useMemorialStore';
+import { getDemoMemorial } from '@/data/demo-memorials';
+import {
+  fetchMemorial,
+  fetchPublicMemorial,
+  isUuid,
+  memorialDtoToStore,
+} from '@/lib/memorials-api';
+import { useAuthStore } from '@/store/useAuthStore';
+import { Memorial } from '@/store/useMemorialStore';
+import { PersistedImage } from '@/components/PersistedImage';
+import { PersistedVideo } from '@/components/PersistedVideo';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
@@ -16,12 +27,50 @@ export default function PublicMemorial() {
   const [, params] = useRoute('/memorial/:id');
   const id = params?.id;
   const { memorials, addMemory } = useMemorialStore();
-  
-  const memorial = useMemo(() => memorials.find(m => m.id === id), [memorials, id]);
+  const { user, accessToken } = useAuthStore();
+  const [apiMemorial, setApiMemorial] = useState<Memorial | null>(null);
+  const [loading, setLoading] = useState(Boolean(id && isUuid(id)));
+
+  useEffect(() => {
+    if (!id || !isUuid(id)) {
+      setLoading(false);
+      return;
+    }
+
+    const load = async () => {
+      try {
+        const dto = accessToken
+          ? await fetchMemorial(id).catch(() => fetchPublicMemorial(id))
+          : await fetchPublicMemorial(id);
+        setApiMemorial(memorialDtoToStore(dto, user?.id || 'public'));
+      } catch {
+        setApiMemorial(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void load();
+  }, [id, accessToken, user?.id]);
+
+  const memorial = useMemo(() => {
+    if (!id) return undefined;
+    if (getDemoMemorial(id)) return getDemoMemorial(id);
+    if (apiMemorial) return apiMemorial;
+    return memorials.find((m) => m.id === id);
+  }, [memorials, id, apiMemorial]);
 
   const [memoryName, setMemoryName] = useState('');
   const [memoryEmail, setMemoryEmail] = useState('');
   const [memoryText, setMemoryText] = useState('');
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center min-h-[60vh] text-muted-foreground">
+        Загрузка страницы памяти…
+      </div>
+    );
+  }
 
   if (!memorial) {
     return (
@@ -61,37 +110,41 @@ export default function PublicMemorial() {
 
   return (
     <div className="w-full bg-background pb-24">
-      {/* Cover Photo & Header */}
-      <div className="relative h-[40vh] md:h-[60vh] w-full bg-muted">
-        {memorial.coverPhoto ? (
-          <img src={memorial.coverPhoto} alt={memorial.fullName} className="w-full h-full object-cover" />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-primary/5">
-            <Leaf className="w-24 h-24 text-primary/20" />
+      {/* Portrait & Header */}
+      <div className="container mx-auto px-4 pt-10 md:pt-16">
+        <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-8 md:gap-12 items-start md:items-center">
+          <div className="w-48 sm:w-56 md:w-64 shrink-0 aspect-[3/4] rounded-2xl overflow-hidden bg-muted border shadow-sm flex items-center justify-center mx-auto md:mx-0">
+            {memorial.coverPhoto ? (
+              <PersistedImage
+                src={memorial.coverPhoto}
+                alt={memorial.fullName}
+                className="w-full h-full object-contain"
+              />
+            ) : (
+              <Leaf className="w-24 h-24 text-primary/20" />
+            )}
           </div>
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
-        
-        <div className="absolute bottom-0 left-0 right-0 p-6 md:p-12 text-center text-foreground z-10 translate-y-12">
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-serif font-medium mb-4 tracking-tight drop-shadow-sm">
-            {memorial.fullName}
-          </h1>
-          <div className="text-xl md:text-2xl opacity-90 font-serif italic text-muted-foreground">
-            {birthDate} — {deathDate}
+
+          <div className="flex-1 text-center md:text-left space-y-4 w-full">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-serif font-medium tracking-tight">
+              {memorial.fullName}
+            </h1>
+            <div className="text-lg md:text-xl font-serif italic text-muted-foreground">
+              {birthDate} — {deathDate}
+            </div>
+            {(memorial.fatherName || memorial.motherName) && (
+              <div className="text-muted-foreground space-y-1 text-base md:text-lg pt-2">
+                {memorial.fatherName && <p>Отец: {memorial.fatherName}</p>}
+                {memorial.motherName && <p>Мать: {memorial.motherName}</p>}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 mt-24">
-        {/* Parents & Epitaph */}
+      <div className="container mx-auto px-4 mt-16">
+        {/* Epitaph */}
         <div className="max-w-3xl mx-auto text-center mb-20 space-y-12">
-          {(memorial.fatherName || memorial.motherName) && (
-            <div className="text-muted-foreground flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-8">
-              {memorial.fatherName && <span>Сын/Дочь: {memorial.fatherName}</span>}
-              {memorial.motherName && <span>Сын/Дочь: {memorial.motherName}</span>}
-            </div>
-          )}
-
           {memorial.epitaph && (
             <div className="relative py-8">
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-[1px] bg-primary/30" />
@@ -139,7 +192,7 @@ export default function PublicMemorial() {
             <div className="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
               {memorial.photos.map((photo, i) => (
                 <div key={i} className="break-inside-avoid rounded-xl overflow-hidden relative group">
-                  <img src={photo.url} alt="" className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-105" />
+                  <PersistedImage src={photo.url} alt="" className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-105" />
                   <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               ))}
@@ -156,7 +209,7 @@ export default function PublicMemorial() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {memorial.videos.map((video, i) => (
                 <div key={i} className="rounded-xl overflow-hidden bg-black aspect-video">
-                  <video src={video.url} controls className="w-full h-full object-contain" />
+                  <PersistedVideo src={video.url} className="w-full h-full object-contain" />
                 </div>
               ))}
             </div>

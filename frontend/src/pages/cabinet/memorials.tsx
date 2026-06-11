@@ -1,16 +1,30 @@
+import { useEffect } from 'react';
 import { Link } from 'wouter';
 import { useMemorialStore } from '@/store/useMemorialStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { fetchMyMemorials, memorialDtoToStore } from '@/lib/memorials-api';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Edit, ExternalLink, Calendar, Image as ImageIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { PersistedImage } from '@/components/PersistedImage';
 
 export default function CabinetMemorials() {
   const { user } = useAuthStore();
-  const { memorials } = useMemorialStore();
-  
+  const { memorials, upsertMemorial } = useMemorialStore();
+
+  useEffect(() => {
+    if (!user) return;
+    void fetchMyMemorials()
+      .then((list) => {
+        list.forEach((dto) => {
+          upsertMemorial(memorialDtoToStore(dto, user.id));
+        });
+      })
+      .catch(() => {});
+  }, [user, upsertMemorial]);
+
   const userMemorials = memorials.filter(m => m.userId === user?.id);
 
   return (
@@ -48,9 +62,9 @@ export default function CabinetMemorials() {
             
             return (
               <Card key={memorial.id} className="overflow-hidden flex flex-col transition-shadow hover:shadow-md">
-                <div className="h-48 bg-muted relative">
+                <div className="h-48 bg-muted relative flex items-center justify-center">
                   {memorial.coverPhoto ? (
-                    <img src={memorial.coverPhoto} alt="Cover" className="w-full h-full object-cover" />
+                    <PersistedImage src={memorial.coverPhoto} alt={memorial.fullName} className="w-full h-full object-contain" />
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center bg-primary/5">
                       <ImageIcon className="w-12 h-12 text-primary/20" />

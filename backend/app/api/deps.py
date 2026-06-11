@@ -40,6 +40,26 @@ async def get_current_user_out(
     return user_to_out(user)
 
 
+async def get_optional_user(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+) -> User | None:
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        return None
+
+    try:
+        user_id, _role = parse_access_token(credentials.credentials)
+    except TokenValidationError:
+        return None
+
+    user = await get_user_by_id(db, user_id)
+    if user is None:
+        return None
+
+    await db.refresh(user, attribute_names=["role"])
+    return user
+
+
 def get_client_meta(request: Request) -> tuple[str | None, str | None]:
     user_agent = request.headers.get("user-agent")
     forwarded = request.headers.get("x-forwarded-for")

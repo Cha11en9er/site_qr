@@ -12,9 +12,11 @@ import { useMemorialStore } from '@/store/useMemorialStore';
 import { useOrderStore } from '@/store/useOrderStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { toast } from 'sonner';
+import { createMemorialApi, memorialDtoToStore } from '@/lib/memorials-api';
+import { ApiError } from '@/lib/api';
 
 const schema = z.object({
-  orderId: z.string().min(1, 'Выберите заказ (оплаченный пакет)'),
+  orderId: z.string().optional(),
   fullName: z.string().min(2, 'Введите полное имя'),
   birthDate: z.string().min(1, 'Введите дату рождения'),
   deathDate: z.string().min(1, 'Введите дату смерти'),
@@ -26,7 +28,7 @@ const schema = z.object({
 export default function CabinetCreateMemorial() {
   const [, setLocation] = useLocation();
   const { user } = useAuthStore();
-  const { createMemorial } = useMemorialStore();
+  const { upsertMemorial } = useMemorialStore();
   const { orders } = useOrderStore();
   
   const userOrders = orders.filter(o => o.userId === user?.id);
@@ -44,24 +46,31 @@ export default function CabinetCreateMemorial() {
     }
   });
 
-  const onSubmit = (data: z.infer<typeof schema>) => {
+  const onSubmit = async (data: z.infer<typeof schema>) => {
     const order = userOrders.find(o => o.id === data.orderId);
-    if (!order) return;
+    const packageType = order?.packageType ?? 'standard';
 
-    const newMemorial = createMemorial({
-      userId: user!.id,
-      orderId: data.orderId,
-      fullName: data.fullName,
-      birthDate: data.birthDate,
-      deathDate: data.deathDate,
-      fatherName: data.fatherName,
-      motherName: data.motherName,
-      epitaph: data.epitaph,
-      packageType: order.packageType,
-    });
+    try {
+      const dto = await createMemorialApi({
+        full_name: data.fullName,
+        birth_date: data.birthDate,
+        death_date: data.deathDate,
+        father_name: data.fatherName,
+        mother_name: data.motherName,
+        epitaph: data.epitaph,
+        package_type: packageType,
+      });
 
-    toast.success('Мемориал создан! Теперь можно добавить фото.');
-    setLocation(`/memorial/${newMemorial.id}/edit`);
+      upsertMemorial({
+        ...memorialDtoToStore(dto, user!.id),
+        orderId: data.orderId || '',
+      });
+
+      toast.success('Мемориал создан! Теперь можно добавить фото.');
+      setLocation(`/memorial/${dto.id}/edit`);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.detail : 'Не удалось создать мемориал');
+    }
   };
 
   return (
@@ -194,7 +203,7 @@ export default function CabinetCreateMemorial() {
                 )}
               />
 
-              <Button type="submit" size="lg" disabled={userOrders.length === 0}>
+              <Button type="submit" size="lg">
                 Создать страницу
               </Button>
             </form>

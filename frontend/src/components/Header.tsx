@@ -1,4 +1,4 @@
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { QrCode, Menu, User, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -10,6 +10,33 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { AuthModal } from './AuthModal';
 import { useState } from 'react';
+
+function scrollToSection(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+}
+
+function NavLink({ sectionId, children }: { sectionId: string; children: React.ReactNode }) {
+  const [location] = useLocation();
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (location === '/') {
+      scrollToSection(sectionId);
+    } else {
+      window.location.href = `/#${sectionId}`;
+    }
+  };
+
+  return (
+    <a
+      href={`/#${sectionId}`}
+      onClick={handleClick}
+      className="text-foreground/80 hover:text-foreground transition-colors"
+    >
+      {children}
+    </a>
+  );
+}
 
 export function Header() {
   const { user, logout } = useAuthStore();
@@ -24,9 +51,9 @@ export function Header() {
         </Link>
 
         <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
-          <Link href="/#how-it-works" className="text-foreground/80 hover:text-foreground transition-colors">О сервисе</Link>
-          <Link href="/#examples" className="text-foreground/80 hover:text-foreground transition-colors">Примеры</Link>
-          <Link href="/#pricing" className="text-foreground/80 hover:text-foreground transition-colors">Тарифы</Link>
+          <NavLink sectionId="how-it-works">О сервисе</NavLink>
+          <NavLink sectionId="examples">Примеры</NavLink>
+          <NavLink sectionId="pricing">Тарифы</NavLink>
         </nav>
 
         <div className="flex items-center gap-4">

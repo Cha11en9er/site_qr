@@ -14,6 +14,16 @@ import { UploadZone } from '@/components/UploadZone';
 import { toast } from 'sonner';
 import { ChevronLeft, Save } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
+import { persistFile, removePersistedUrl } from '@/lib/media-storage';
+import { PersistedImage } from '@/components/PersistedImage';
+import { uploadMedia } from '@/lib/media-api';
+import {
+  fetchMemorial,
+  isUuid,
+  memorialDtoToStore,
+  updateMemorialApi,
+} from '@/lib/memorials-api';
+import { ApiError } from '@/lib/api';
 
 const schema = z.object({
   fullName: z.string().min(2, 'Введите полное имя'),
@@ -33,7 +43,7 @@ export default function EditMemorial() {
   const id = params?.id;
   
   const { user } = useAuthStore();
-  const { memorials, updateMemorial } = useMemorialStore();
+  const { memorials, updateMemorial, upsertMemorial } = useMemorialStore();
   
   const memorial = memorials.find(m => m.id === id);
   
@@ -55,6 +65,33 @@ export default function EditMemorial() {
   const [coverPhoto, setCoverPhoto] = useState<string | undefined>(memorial?.coverPhoto);
   const [photos, setPhotos] = useState<UploadedFile[]>(memorial?.photos || []);
   const [videos, setVideos] = useState<UploadedFile[]>(memorial?.videos || []);
+  const [loading, setLoading] = useState(Boolean(id && isUuid(id)));
+
+  useEffect(() => {
+    if (!id || !isUuid(id) || !user) return;
+
+    void fetchMemorial(id)
+      .then((dto) => {
+        const mapped = memorialDtoToStore(dto, user.id);
+        upsertMemorial(mapped);
+        setCoverPhoto(mapped.coverPhoto);
+        setPhotos(mapped.photos);
+        setVideos(mapped.videos);
+        form.reset({
+          fullName: mapped.fullName,
+          birthDate: mapped.birthDate,
+          deathDate: mapped.deathDate,
+          fatherName: mapped.fatherName || '',
+          motherName: mapped.motherName || '',
+          epitaph: mapped.epitaph || '',
+          address: mapped.graveLocation?.address || '',
+          lat: mapped.graveLocation?.lat || 55.7558,
+          lng: mapped.graveLocation?.lng || 37.6173,
+        });
+      })
+      .catch(() => toast.error('Не удалось загрузить мемориал с сервера'))
+      .finally(() => setLoading(false));
+  }, [id, user]);
 
   useEffect(() => {
     if (!memorial || (user && memorial.userId !== user.id && !user.isAdmin)) {
@@ -64,6 +101,9 @@ export default function EditMemorial() {
   }, [memorial, user, setLocation]);
 
   if (!memorial) return null;
+  if (loading) return <div className="container py-16 text-center text-muted-foreground">Загрузка…</div>;
+
+  const isServerMemorial = isUuid(memorial.id);
 
   const getPackageLimits = (type: string) => {
     switch (type) {
@@ -77,7 +117,45 @@ export default function EditMemorial() {
   const limits = getPackageLimits(memorial.packageType);
   const usedVideoMinutes = videos.reduce((acc, v) => acc + (v.duration || 0) / 60, 0);
 
-  const onSubmit = (data: z.infer<typeof schema>) => {
+  const onSubmit = async (data: z.infer<typeof schema>) => {
+    const graveLocation = data.address
+      ? { address: data.address, lat: data.lat || 0, lng: data.lng || 0 }
+      : undefined;
+
+    if (isServerMemorial) {
+      try {
+        await updateMemorialApi(memorial.id, {
+          full_name: data.fullName,
+          birth_date: data.birthDate,
+          death_date: data.deathDate,
+          father_name: data.fatherName || null,
+          mother_name: data.motherName || null,
+          epitaph: data.epitaph || null,
+          grave_address: data.address || null,
+          grave_lat: data.lat ?? null,
+          grave_lng: data.lng ?? null,
+          is_published: true,
+        });
+        updateMemorial(memorial.id, {
+          fullName: data.fullName,
+          birthDate: data.birthDate,
+          deathDate: data.deathDate,
+          fatherName: data.fatherName,
+          motherName: data.motherName,
+          epitaph: data.epitaph,
+          graveLocation,
+          coverPhoto,
+          photos,
+          videos,
+          isPublished: true,
+        });
+        toast.success('Изменения сохранены');
+      } catch (error) {
+        toast.error(error instanceof ApiError ? error.detail : 'Ошибка сохранения');
+      }
+      return;
+    }
+
     updateMemorial(memorial.id, {
       fullName: data.fullName,
       birthDate: data.birthDate,
@@ -85,28 +163,33 @@ export default function EditMemorial() {
       fatherName: data.fatherName,
       motherName: data.motherName,
       epitaph: data.epitaph,
-      graveLocation: data.address ? {
-        address: data.address,
-        lat: data.lat || 0,
-        lng: data.lng || 0
-      } : undefined,
+      graveLocation,
       coverPhoto,
       photos,
-      videos
+      videos,
     });
-    
     toast.success('Изменения сохранены');
   };
 
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     try {
       const compressed = await imageCompression(file, { maxSizeMB: 1, maxWidthOrHeight: 1920 });
-      setCoverPhoto(URL.createObjectURL(compressed));
+
+      if (isServerMemorial) {
+        const result = await uploadMedia(memorial.id, 'portrait', compressed);
+        setCoverPhoto(result.url);
+        toast.success('Фотография загружена');
+        return;
+      }
+
+      if (coverPhoto) await removePersistedUrl(coverPhoto);
+      const url = await persistFile(compressed, `cover-${memorial.id}`);
+      setCoverPhoto(url);
     } catch (err) {
-      toast.error('Ошибка загрузки обложки');
+      toast.error(err instanceof ApiError ? err.detail : 'Ошибка загрузки фотографии');
     }
   };
 
@@ -127,24 +210,30 @@ export default function EditMemorial() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           
-          {/* Обложка */}
+          {/* Главная фотография */}
           <Card>
             <CardHeader>
-              <CardTitle>Обложка страницы</CardTitle>
+              <CardTitle>Главная фотография</CardTitle>
+              <CardDescription>
+                Портрет близкого человека — отображается в верхней части мемориальной страницы при сканировании QR-кода
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="h-64 rounded-xl border overflow-hidden bg-muted relative">
+                <div className="w-56 sm:w-64 mx-auto aspect-[3/4] rounded-xl border overflow-hidden bg-muted flex items-center justify-center">
                   {coverPhoto ? (
-                    <img src={coverPhoto} alt="Cover" className="w-full h-full object-cover" />
+                    <PersistedImage src={coverPhoto} alt="Портрет" className="w-full h-full object-contain" />
                   ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-                      Нет обложки
-                    </div>
+                    <span className="text-muted-foreground text-sm text-center px-4">
+                      Фотография не загружена
+                    </span>
                   )}
                 </div>
                 <div>
                   <Input type="file" accept="image/*" onChange={handleCoverUpload} />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Рекомендуется портретная фотография — будет показана целиком, без обрезки
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -285,9 +374,10 @@ export default function EditMemorial() {
               <CardDescription>Пакет {memorial.packageType}</CardDescription>
             </CardHeader>
             <CardContent>
-              <UploadZone 
+              <UploadZone
                 accept="image/*"
                 multiple={true}
+                memorialId={memorial.id}
                 usedCount={photos.length}
                 maxCount={limits.photos}
                 files={photos}
@@ -313,9 +403,10 @@ export default function EditMemorial() {
             </CardHeader>
             <CardContent>
               {limits.videos > 0 ? (
-                <UploadZone 
+                <UploadZone
                   accept="video/*"
                   multiple={true}
+                  memorialId={memorial.id}
                   usedCount={usedVideoMinutes}
                   maxCount={limits.videos}
                   files={videos}

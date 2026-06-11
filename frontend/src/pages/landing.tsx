@@ -1,6 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { QrCode, BookOpen, Clock, Heart, ChevronRight, Check } from 'lucide-react';
+import { QrCode, BookOpen, Clock, Heart, ChevronRight, Check, ExternalLink } from 'lucide-react';
+import { Link } from 'wouter';
+import { DEMO_MEMORIALS } from '@/data/demo-memorials';
+import { PersistedImage } from '@/components/PersistedImage';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import {
@@ -14,6 +17,15 @@ import { QRCodeSVG } from 'qrcode.react';
 
 export default function LandingPage() {
   const [isPurchaseOpen, setIsPurchaseOpen] = useState(false);
+
+  useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    if (hash) {
+      requestAnimationFrame(() => {
+        document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth' });
+      });
+    }
+  }, []);
 
   return (
     <div className="w-full">
@@ -31,6 +43,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
+            className="w-full flex flex-col items-center"
           >
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-serif font-medium text-foreground tracking-tight max-w-4xl mx-auto leading-tight mb-6">
               Вечная память <br className="hidden md:block" />в одном QR-коде
@@ -39,19 +52,30 @@ export default function LandingPage() {
               Прикрепите цифровую страницу к памятнику. Сохраните историю, фотографии и воспоминания о близком человеке для будущих поколений.
             </p>
 
-            <Button
-              onClick={() => setIsPurchaseOpen(true)}
-              className="rounded-full w-48 h-48 sm:w-56 sm:h-56 text-lg sm:text-xl font-medium bg-primary hover:bg-primary/90 text-primary-foreground shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 flex flex-col items-center justify-center gap-3"
-            >
-              <QrCode className="w-10 h-10" />
-              <span className="max-w-[140px] leading-tight">Купить QR-код воспоминания</span>
-            </Button>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Button
+                onClick={() => setIsPurchaseOpen(true)}
+                size="lg"
+                className="h-14 px-8 text-lg rounded-full shadow-lg hover:shadow-xl transition-all"
+              >
+                <QrCode className="w-5 h-5 mr-2" />
+                Заказать QR-табличку
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                className="h-14 px-8 text-lg rounded-full"
+                asChild
+              >
+                <a href="#examples">Посмотреть примеры</a>
+              </Button>
+            </div>
           </motion.div>
         </div>
       </section>
 
       {/* How it works */}
-      <section id="how-it-works" className="py-24 bg-background">
+      <section id="how-it-works" className="py-24 bg-background scroll-mt-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-serif font-medium mb-4">Как это работает</h2>
@@ -85,7 +109,7 @@ export default function LandingPage() {
       </section>
 
       {/* Pricing */}
-      <section id="pricing" className="py-24 bg-card">
+      <section id="pricing" className="py-24 bg-card scroll-mt-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-serif font-medium mb-4">Наши пакеты</h2>
@@ -162,8 +186,61 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Example memorial pages */}
+      <section id="examples" className="py-24 bg-background scroll-mt-20">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-serif font-medium mb-4">Примеры страниц памяти</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Так выглядит мемориальная страница, которую увидят близкие после сканирования QR-кода
+            </p>
+            <div className="w-16 h-0.5 bg-primary/20 mx-auto mt-4" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto items-stretch">
+            {DEMO_MEMORIALS.map((demo) => {
+              const birthYear = demo.birthDate ? new Date(demo.birthDate).getFullYear() : '';
+              const deathYear = demo.deathDate ? new Date(demo.deathDate).getFullYear() : '';
+              return (
+                <Card key={demo.id} className="flex flex-col h-full hover:shadow-md transition-shadow">
+                  <CardContent className="flex flex-col flex-1 p-5">
+                    <div className="flex gap-4 flex-1">
+                      <div className="w-24 h-32 shrink-0 rounded-lg overflow-hidden bg-muted border flex items-center justify-center">
+                        {demo.coverPhoto ? (
+                          <PersistedImage
+                            src={demo.coverPhoto}
+                            alt={demo.fullName}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-xs text-muted-foreground text-center px-1">Нет фото</span>
+                        )}
+                      </div>
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <h3 className="font-serif text-lg font-medium leading-snug line-clamp-2 min-h-[2.75rem]">
+                          {demo.fullName}
+                        </h3>
+                        <p className="text-sm text-muted-foreground mt-1">{birthYear} — {deathYear}</p>
+                        <p className="text-sm italic text-muted-foreground line-clamp-2 mt-2 flex-1 min-h-[2.5rem]">
+                          {demo.epitaph ? `«${demo.epitaph}»` : '\u00A0'}
+                        </p>
+                      </div>
+                    </div>
+                    <Button variant="outline" className="w-full mt-5 cursor-pointer" asChild>
+                      <Link href={`/memorial/${demo.id}`} className="cursor-pointer">
+                        Открыть страницу <ExternalLink className="w-4 h-4 ml-2" />
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
       {/* Testimonials */}
-      <section className="py-24 bg-background overflow-hidden">
+      <section className="py-24 bg-card overflow-hidden">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-serif font-medium mb-4">Отзывы</h2>
@@ -177,7 +254,7 @@ export default function LandingPage() {
               { name: "Елена Д.", text: "Для нашей семьи это стало настоящим проектом памяти. Мы вместе вспоминали истории, отбирали фотографии. Спасибо создателям." },
               { name: "Сергей П.", text: "Очень удобно, что есть возможность оставить свои воспоминания. Друзья отца написали столько теплых слов, о которых мы даже не знали." }
             ].map((testimonial, i) => (
-              <Card key={i} className="min-w-[300px] md:min-w-[400px] max-w-[400px] snap-center bg-card border-none shadow-sm">
+              <Card key={i} className="min-w-[300px] md:min-w-[400px] max-w-[400px] snap-center bg-background border-none shadow-sm">
                 <CardContent className="pt-8">
                   <div className="flex text-primary mb-4">
                     {[1,2,3,4,5].map(s => <span key={s}>★</span>)}
