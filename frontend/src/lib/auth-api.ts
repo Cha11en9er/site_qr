@@ -2,7 +2,7 @@ import { apiRequest } from "@/lib/api";
 
 export interface ApiUser {
   id: string;
-  email: string;
+  email: string | null;
   full_name: string | null;
   phone: string | null;
   role: string;
@@ -23,16 +23,20 @@ export interface AuthResponse {
 }
 
 export interface RegisterPayload {
-  email: string;
+  login: string;
   password: string;
-  full_name: string;
-  phone: string;
   accept_privacy: boolean;
 }
 
 export interface LoginPayload {
-  email: string;
+  login: string;
   password: string;
+}
+
+export interface UserProfileUpdatePayload {
+  full_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
 }
 
 export async function registerRequest(payload: RegisterPayload): Promise<AuthResponse> {
@@ -53,6 +57,17 @@ export async function meRequest(token: string): Promise<ApiUser> {
   return apiRequest<ApiUser>("/auth/me", { token });
 }
 
+export async function updateProfileRequest(
+  token: string,
+  payload: UserProfileUpdatePayload,
+): Promise<ApiUser> {
+  return apiRequest<ApiUser>("/auth/me", {
+    method: "PATCH",
+    token,
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function logoutRequest(refreshToken: string): Promise<void> {
   await apiRequest("/auth/logout", {
     method: "POST",
@@ -63,8 +78,9 @@ export async function logoutRequest(refreshToken: string): Promise<void> {
 export function mapApiUser(user: ApiUser) {
   return {
     id: user.id,
-    name: user.full_name ?? user.email,
-    email: user.email,
+    name: user.full_name ?? user.email ?? user.phone ?? "Пользователь",
+    fullName: user.full_name ?? "",
+    email: user.email ?? "",
     phone: user.phone ?? "",
     isAdmin: user.is_admin,
     emailVerified: user.email_verified,

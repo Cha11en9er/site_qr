@@ -49,7 +49,8 @@ async def upload_media(
     allowed = ALLOWED_IMAGE_TYPES if media_type != "video" else ALLOWED_VIDEO_TYPES
     max_bytes = MAX_IMAGE_BYTES if media_type != "video" else MAX_VIDEO_BYTES
 
-    storage_key = build_storage_key(memorial_id, folder, file.content_type)
+    shard_id = await memorial_service.resolve_storage_shard(db, memorial_id)
+    storage_key = build_storage_key(shard_id, folder, file.content_type)
     size_bytes = await save_upload_file(
         settings,
         file,

@@ -23,7 +23,11 @@ export function mediaFileUrl(storageKey: string): string {
 
 export function isStorageKey(value: string | undefined): boolean {
   if (!value) return false;
-  return value.startsWith('memorials/') || value.startsWith('demos/');
+  return (
+    value.startsWith('memorials/') ||
+    value.startsWith('examples/') ||
+    /^\d{4}-\d{2}\//.test(value)
+  );
 }
 
 export async function uploadMedia(

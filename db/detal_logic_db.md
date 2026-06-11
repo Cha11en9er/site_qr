@@ -2,7 +2,7 @@
 
 Документ для разбора **каждой таблицы**: что хранится, примеры строк, юз-кейсы, типы данных и смысл ограничений (`CONSTRAINT`, `INDEX`).
 
-Схема лежит в `db/scripts/`. Начальные данные справочников — в `12_seed.sql`.
+Схема лежит в `db/scripts/`. Начальные данные справочников — в `08_seed.sql`.
 
 ---
 
@@ -67,7 +67,7 @@ CONSTRAINT chk_user_consents_actor CHECK (user_id IS NOT NULL OR email IS NOT NU
 | Тип PostgreSQL | Где используется | Объяснение |
 |----------------|------------------|------------|
 | `UUID` | `id` почти везде | Случайный 128-битный идентификатор. Генерируется `gen_random_uuid()` (расширение `pgcrypto`). Удобен для API и слияния данных без коллизий. |
-| `CITEXT` | `email`, `buyer_email` | Case-Insensitive TEXT. `User@Mail.ru` и `user@mail.ru` — **одно и то же**. Нужен для email без дублей из-за регистра. Расширение `citext` из `01_extensions.sql`. |
+| `CITEXT` | `email`, `buyer_email` | Case-Insensitive TEXT. `User@Mail.ru` и `user@mail.ru` — **одно и то же**. Нужен для email без дублей из-за регистра. Расширение `citext` из `01_init.sql`. |
 | `INET` | `ip_address` | IP-адрес (IPv4/IPv6). PostgreSQL хранит и валидирует формат. |
 | `JSONB` | `payload`, `response_body`, аудит | JSON в бинарном виде — для webhook-тел, ответов API, diff в аудите. |
 | `TIMESTAMPTZ` | `created_at`, `paid_at`, … | Момент времени **с часовым поясом** (UTC внутри). «Когда произошло» для логов и сроков. |
@@ -193,7 +193,7 @@ CONSTRAINT chk_user_consents_actor CHECK (user_id IS NOT NULL OR email IS NOT NU
 | 2 | video | Видео усопшего |
 | 3 | grave_photo | Фото могилы |
 
-На одном мемориале может быть много `photo`/`video`, но **не более одного** `grave_photo` (триггер в `11_functions_triggers.sql`).
+На одном мемориале может быть много `photo`/`video`, но **не более одного** `grave_photo` (триггер в `07_logic.sql`).
 
 ---
 
@@ -398,7 +398,7 @@ CHECK (user_id IS NOT NULL OR email IS NOT NULL)
 
 ---
 
-## 04_orders.sql — заказы
+## 04_commerce.sql — заказы
 
 ### `orders` — шапка заказа
 
@@ -476,7 +476,7 @@ CHECK (user_id IS NOT NULL OR email IS NOT NULL)
 
 ---
 
-## 05_payments.sql — оплата
+## 04_commerce.sql — оплата
 
 ### `payments` — платёж ЮKassa
 
@@ -530,7 +530,7 @@ CHECK (user_id IS NOT NULL OR email IS NOT NULL)
 
 ---
 
-## 06_qr_codes.sql — QR-коды
+## 04_commerce.sql — QR-коды
 
 ### `qr_codes`
 
@@ -558,7 +558,7 @@ CHECK (user_id IS NOT NULL OR email IS NOT NULL)
 
 ---
 
-## 07_memorials.sql — мемориальные страницы
+## 05_content.sql — мемориальные страницы
 
 ### `memorials`
 
@@ -581,7 +581,7 @@ CHECK (user_id IS NOT NULL OR email IS NOT NULL)
 
 ---
 
-## 08_media.sql — файлы
+## 05_content.sql — файлы
 
 ### `media_upload_sessions` — presigned upload
 
@@ -591,7 +591,7 @@ CHECK (user_id IS NOT NULL OR email IS NOT NULL)
 
 **Пример фото:**
 
-| storage_key | `memorials/abc/photo1.jpg` |
+| storage_key | `2026-06/{order_id}/photos/….jpg` или `examples/pushkin/portrait.jpg` |
 | mime_type | `image/jpeg` |
 | size_bytes | `2048576` |
 | processing_status_id | `3` ready |
@@ -601,7 +601,7 @@ CHECK (user_id IS NOT NULL OR email IS NOT NULL)
 
 ---
 
-## 09_reviews.sql — отзывы
+## 05_content.sql — отзывы
 
 ### `memorial_reviews`
 
@@ -616,7 +616,7 @@ CHECK (user_id IS NOT NULL OR email IS NOT NULL)
 
 ---
 
-## 10_system.sql — служебные таблицы
+## 06_system.sql — служебные таблицы
 
 ### `api_idempotency_keys` — идемпотентность **вашего API**
 
@@ -668,8 +668,8 @@ CHECK (user_id IS NOT NULL OR email IS NOT NULL)
 | Файл | Содержимое |
 |------|------------|
 | `02_lookups.sql` … `10_system.sql` | таблицы и CONSTRAINT |
-| `11_functions_triggers.sql` | один успешный платёж, лимиты медиа, одно фото могилы, `updated_at` |
-| `12_seed.sql` | примеры строк справочников |
+| `07_logic.sql` | один успешный платёж, лимиты медиа, одно фото могилы, `updated_at`, `sp_*` |
+| `08_seed.sql` | примеры строк справочников |
 
 ---
 

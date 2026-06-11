@@ -5,7 +5,7 @@ export interface UploadedFile {
   id: string;
   name: string;
   url: string; // URL для отображения (/api/v1/media/files/...)
-  storageKey?: string; // относительный путь в БД: memorials/{uuid}/photos/...
+  storageKey?: string; // относительный путь: YYYY-MM/{order_id|memorial_id}/photos/… или examples/…
   size: number;
   type: string;
   duration?: number; // for video, in seconds
@@ -55,33 +55,7 @@ interface MemorialState {
   deleteMemory: (memorialId: string, memoryId: string) => void;
 }
 
-const sampleMemorials: Memorial[] = [
-  {
-    id: 'mem-1',
-    userId: 'user-test',
-    orderId: 'order-1',
-    fullName: 'Иванов Иван Иванович',
-    birthDate: '1945-05-09',
-    deathDate: '2020-10-12',
-    fatherName: 'Иванов Иван',
-    motherName: 'Иванова Мария',
-    epitaph: 'Помним, любим, скорбим...',
-    photos: [],
-    videos: [],
-    memories: [
-      {
-        id: 'memory-1',
-        authorName: 'Петр',
-        authorEmail: 'petr@example.com',
-        text: 'Прекрасный был человек, всегда помогал в трудную минуту.',
-        approved: true,
-        createdAt: '2023-01-10T10:00:00Z'
-      }
-    ],
-    packageType: 'standard',
-    createdAt: '2022-12-01T10:00:00Z'
-  }
-];
+const sampleMemorials: Memorial[] = [];
 
 export const useMemorialStore = create<MemorialState>()(
   persist(

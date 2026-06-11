@@ -12,16 +12,17 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
-const loginSchema = z.object({
-  email: z.string().email("Неверный формат email"),
+const emailSchema = z
+  .string()
+  .min(1, "Введите email")
+  .email("Введите корректный email");
+
+const credentialsSchema = z.object({
+  login: emailSchema,
   password: z.string().min(4, "Минимум 4 символа"),
 });
 
-const registerSchema = z.object({
-  name: z.string().min(2, "Введите ФИО"),
-  email: z.string().email("Неверный формат email"),
-  phone: z.string().min(10, "Введите телефон"),
-  password: z.string().min(4, "Минимум 4 символа"),
+const registerSchema = credentialsSchema.extend({
   acceptPrivacy: z.boolean().refine((value) => value, {
     message: "Необходимо согласие с политикой конфиденциальности",
   }),
@@ -37,14 +38,14 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
   const [tab, setTab] = useState<"login" | "register">("login");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const loginForm = useForm<z.infer<typeof loginSchema>>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { email: "", password: "" },
+  const loginForm = useForm<z.infer<typeof credentialsSchema>>({
+    resolver: zodResolver(credentialsSchema),
+    defaultValues: { login: "", password: "" },
   });
 
   const registerForm = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { name: "", email: "", phone: "", password: "", acceptPrivacy: false },
+    defaultValues: { login: "", password: "", acceptPrivacy: false },
   });
 
   useEffect(() => {
@@ -55,9 +56,9 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
     }
   }, [open, loginForm, registerForm]);
 
-  const onLogin = async (data: z.infer<typeof loginSchema>) => {
+  const onLogin = async (data: z.infer<typeof credentialsSchema>) => {
     setIsSubmitting(true);
-    const result = await login(data.email, data.password);
+    const result = await login(data.login, data.password);
     setIsSubmitting(false);
 
     if (result.ok) {
@@ -71,9 +72,7 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
   const onRegister = async (data: z.infer<typeof registerSchema>) => {
     setIsSubmitting(true);
     const result = await register({
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
+      login: data.login,
       password: data.password,
       acceptPrivacy: data.acceptPrivacy,
     });
@@ -86,6 +85,48 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
     }
     toast.error(result.error);
   };
+
+  const emailField = (form: typeof loginForm | typeof registerForm) => (
+    <FormField
+      control={form.control}
+      name="login"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>Почта</FormLabel>
+          <FormControl>
+            <Input
+              type="email"
+              placeholder="email@example.com"
+              autoComplete="email"
+              {...field}
+            />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+
+  const passwordField = (form: typeof loginForm | typeof registerForm) => (
+    <FormField
+      control={form.control}
+      name="password"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>Пароль</FormLabel>
+          <FormControl>
+            <Input
+              type="password"
+              placeholder="••••"
+              autoComplete={tab === "login" ? "current-password" : "new-password"}
+              {...field}
+            />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -106,32 +147,8 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
           <TabsContent value="login">
             <Form {...loginForm}>
               <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4 mt-4">
-                <FormField
-                  control={loginForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input placeholder="email@example.com" autoComplete="email" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={loginForm.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Пароль</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="••••" autoComplete="current-password" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {emailField(loginForm)}
+                {passwordField(loginForm)}
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
                   {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Войти"}
                 </Button>
@@ -142,58 +159,8 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
           <TabsContent value="register">
             <Form {...registerForm}>
               <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-4 mt-4">
-                <FormField
-                  control={registerForm.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>ФИО</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Иванов Иван Иванович" autoComplete="name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={registerForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input placeholder="email@example.com" autoComplete="email" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={registerForm.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Телефон</FormLabel>
-                      <FormControl>
-                        <Input placeholder="+79001234567" autoComplete="tel" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={registerForm.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Пароль</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="••••" autoComplete="new-password" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {emailField(registerForm)}
+                {passwordField(registerForm)}
                 <FormField
                   control={registerForm.control}
                   name="acceptPrivacy"

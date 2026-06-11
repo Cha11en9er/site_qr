@@ -28,7 +28,9 @@ Thumbs.db
 # Logs & temp
 *.log
 tmp/
-uploads/
+uploads/*
+!uploads/examples/
+!uploads/examples/**
 
 Asset-Manager/
 

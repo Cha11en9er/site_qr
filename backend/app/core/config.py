@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     postgres_db: str = "qr_pamyat"
     postgres_user: str = "qr_app"
     postgres_password: str = "qr_app"
+    postgres_schema: str = "qr"
     database_url: str = "postgresql+asyncpg://qr_app:qr_app@localhost:5432/qr_pamyat"
 
     api_host: str = "0.0.0.0"

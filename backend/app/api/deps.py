@@ -40,6 +40,12 @@ async def get_current_user_out(
     return user_to_out(user)
 
 
+async def get_current_user_id(
+    user: Annotated[User, Depends(get_current_user)],
+) -> UUID:
+    return user.id
+
+
 async def get_optional_user(
     db: Annotated[AsyncSession, Depends(get_db)],
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],

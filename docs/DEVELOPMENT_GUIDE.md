@@ -238,20 +238,18 @@ qr_codes (
 - Прямая загрузка на API → сервер станет узким местом
 - S3 API — стандарт, локально тестируете на **MinIO**
 
-### Структура бакета
+### Структура бакета / локального `uploads/`
 
 ```
-qr-pamyat-media/
-  memorials/{memorial_id}/
-    photos/
-      {file_uuid}_original.webp
-      {file_uuid}_thumb_400.webp
-    videos/
-      {file_uuid}_original.mp4
-      {file_uuid}_poster.jpg
-    grave/
-      {file_uuid}_grave.jpg
+uploads/   (или бакет qr-pamyat-media)
+  YYYY-MM/{order_id|memorial_id}/   # shard: order_id если QR привязан, иначе memorial_id
+    portrait/{uuid}.jpg
+    photos/{uuid}.webp
+    videos/{uuid}.mp4
+  examples/{slug}/portrait.jpg        # демо-примеры, в git
 ```
+
+Месяц в пути — для ручного поиска и политик хранения (как у S3 lifecycle). Связь «заказ → файлы» — в БД; на диске при наличии QR используется `order_id`.
 
 ### Поток загрузки (presigned URL)
 

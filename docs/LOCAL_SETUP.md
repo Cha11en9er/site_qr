@@ -6,15 +6,17 @@
 
 ## Что нужно заранее
 
-| Инструмент | Версия | Зачем |
-|------------|--------|-------|
-| **Git** | любая актуальная | код проекта |
-| **Python** | 3.12+ | backend FastAPI |
-| **Node.js** | 20+ | frontend Vite |
-| **npm** | идёт с Node | зависимости UI |
-| **PostgreSQL** | 16 | база данных |
-| **DBeaver** | опционально | удобно накатывать SQL (рекомендуется) |
-| **ngrok** | опционально | туннель для webhooks (ЮKassa) и внешнего доступа к API |
+
+| Инструмент     | Версия           | Зачем                                                  |
+| -------------- | ---------------- | ------------------------------------------------------ |
+| **Git**        | любая актуальная | код проекта                                            |
+| **Python**     | 3.12+            | backend FastAPI                                        |
+| **Node.js**    | 20+              | frontend Vite                                          |
+| **npm**        | идёт с Node      | зависимости UI                                         |
+| **PostgreSQL** | 16               | база данных                                            |
+| **DBeaver**    | опционально      | удобно накатывать SQL (рекомендуется)                  |
+| **ngrok**      | опционально      | туннель для webhooks (ЮKassa) и внешнего доступа к API |
+
 
 Проверка в PowerShell:
 
@@ -82,13 +84,16 @@ CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 VITE_API_BASE_URL=/api/v1
 ```
 
-| Переменная | Смысл |
-|------------|--------|
-| `DATABASE_URL` | подключение backend → PostgreSQL |
-| `JWT_SECRET` | подпись access-токенов (на проде — длинная случайная строка) |
-| `VITE_API_BASE_URL=/api/v1` | фронт ходит на `/api/…`, Vite проксирует на `:8000` |
-| `MEDIA_STORAGE_ROOT=uploads` | корень файлов на диске; **в БД** — только относительные пути (`memorials/{uuid}/photos/...`) |
-| Папка `uploads/` | `C:\repos\YouDo\site_qr\uploads` (создаётся при первой загрузке; демо: `uploads/demos/`) |
+
+| Переменная                   | Смысл                                                                                        |
+| ---------------------------- | -------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`               | подключение backend → PostgreSQL                                                             |
+| `JWT_SECRET`                 | подпись access-токенов (на проде — длинная случайная строка)                                 |
+| `VITE_API_BASE_URL=/api/v1`  | фронт ходит на `/api/…`, Vite проксирует на `:8000`                                          |
+| `MEDIA_STORAGE_ROOT=uploads` | корень файлов; в БД — относительный `storage_key` |
+| Пользовательские загрузки | `uploads/YYYY-MM/{order_id\|memorial_id}/portrait\|photos\|videos/` |
+| Примеры на лендинге | `uploads/examples/{pushkin,kuprin,mendeleev}/portrait.jpg` (в git) |
+
 
 > Если PostgreSQL на другом порту или пароль другой — меняйте и `POSTGRES_*`, и `DATABASE_URL`.
 
@@ -100,12 +105,13 @@ VITE_API_BASE_URL=/api/v1
 
 **Первый раз:**
 
-| Шаг | Где в DBeaver | Файл |
-|-----|---------------|------|
-| 1 | Создать БД `qr_pamyat` (UTF8) | GUI: ПКМ → Create Database |
-| 2 | Подключение к **`postgres`** | `db/scripts/00_database.sql` |
-| 3 | Подключение к **`qr_pamyat`** | `db/scripts/00_full_schema.sql` (**Alt+X**) |
-| 4 | Подключение к **`qr_pamyat`** | `db/scripts/13_portrait_media_type.sql` (тип «Главная фотография») |
+
+| Шаг | Где в DBeaver                 | Файл                                                               |
+| --- | ----------------------------- | ------------------------------------------------------------------ |
+| 1   | Создать БД `qr_pamyat` (UTF8) | GUI: ПКМ → Create Database                                         |
+| 2   | Подключение к `**postgres`**  | `db/scripts/00_database.sql`                                       |
+| 3   | Подключение к `**qr_pamyat**` | `db/scripts/00_full_schema.sql` (**Alt+X**) |
+
 
 Подробнее: [db/dbeaver/GUIDE.md](../db/dbeaver/GUIDE.md)
 
@@ -117,8 +123,8 @@ VITE_API_BASE_URL=/api/v1
 **Проверка:**
 
 ```sql
-SELECT count(*) FROM package_types;   -- ожидается 3
-SELECT count(*) FROM user_roles;      -- ожидается 2
+SELECT count(*) FROM qr.package_types;   -- ожидается 3
+SELECT count(*) FROM qr.user_roles;      -- ожидается 2
 ```
 
 ### Вариант B — PostgreSQL через Docker
@@ -132,8 +138,8 @@ docker compose up -d postgres
 
 Контейнер поднимет Postgres на `localhost:5432`. Дальше в DBeaver:
 
-1. `00_database.sql` (к **`postgres`**)
-2. `00_full_schema.sql` (к **`qr_pamyat`**)
+1. `00_database.sql` (к `**postgres**`)
+2. `00_full_schema.sql` (к `**qr_pamyat**`)
 
 Пароль в `docker-compose.yml` по умолчанию может отличаться от `qr_app` — тогда подстройте `.env` под `POSTGRES_PASSWORD` из compose или используйте локальный Postgres с паролем `qr_app`.
 
@@ -169,9 +175,9 @@ cd C:\repos\YouDo\site_qr\backend
 
 Проверка:
 
-- http://127.0.0.1:8000/docs — Swagger
-- http://127.0.0.1:8000/api/v1/health — `{"status":"ok",…}`
-- http://127.0.0.1:8000/api/v1/health/db — `database: connected`, `package_types_count: 3`
+- [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) — Swagger
+- [http://127.0.0.1:8000/api/v1/health](http://127.0.0.1:8000/api/v1/health) — `{"status":"ok",…}`
+- [http://127.0.0.1:8000/api/v1/health/db](http://127.0.0.1:8000/api/v1/health/db) — `database: connected`, `package_types_count: 3`
 
 ---
 
@@ -187,13 +193,15 @@ npm install
 npm run dev
 ```
 
-Открой в браузере: **http://127.0.0.1:5173**
+Открой в браузере: **[http://127.0.0.1:5173](http://127.0.0.1:5173)**
 
-| Действие | URL |
-|----------|-----|
-| Главная | http://127.0.0.1:5173 |
-| Вход / регистрация | кнопка «Войти» в шапке |
-| Личный кабинет | http://127.0.0.1:5173/cabinet |
+
+| Действие           | URL                                                            |
+| ------------------ | -------------------------------------------------------------- |
+| Главная            | [http://127.0.0.1:5173](http://127.0.0.1:5173)                 |
+| Вход / регистрация | кнопка «Войти» в шапке                                         |
+| Личный кабинет     | [http://127.0.0.1:5173/cabinet](http://127.0.0.1:5173/cabinet) |
+
 
 > **Важно:** UI и API — **два процесса**. Если видишь `ERR_CONNECTION_REFUSED` на `:5173` — не запущен `npm run dev`. Если форма входа пишет про сеть — проверь uvicorn на `:8000`.
 
@@ -250,7 +258,7 @@ $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";"
 ngrok version
 ```
 
-3. Или запуск по полному пути / из `%USERPROFILE%\.local\bin` (если копировали туда):
+1. Или запуск по полному пути / из `%USERPROFILE%\.local\bin` (если копировали туда):
 
 ```powershell
 & "$env:USERPROFILE\.local\bin\ngrok.exe" version
@@ -299,9 +307,11 @@ Forwarding   https://a1b2c3d4.ngrok-free.app -> http://localhost:8000
 
 ### Webhook ЮKassa (когда подключите оплату)
 
-| Поле в ЛК ЮKassa | Значение |
-|------------------|----------|
-| URL webhook | `https://<ваш-поддомен>.ngrok-free.app/api/webhooks/yookassa` |
+
+| Поле в ЛК ЮKassa | Значение                                                      |
+| ---------------- | ------------------------------------------------------------- |
+| URL webhook      | `https://<ваш-поддомен>.ngrok-free.app/api/webhooks/yookassa` |
+
 
 > URL ngrok **меняется** на бесплатном плане при каждом перезапуске — после рестарта `ngrok http 8000` обновите адрес в ЛК ЮKassa.
 
@@ -315,25 +325,29 @@ Forwarding   https://a1b2c3d4.ngrok-free.app -> http://localhost:8000
 
 ### Частые проблемы ngrok
 
-| Симптом | Решение |
-|---------|---------|
+
+| Симптом                                            | Решение                                                                                                                                                                      |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ngrok` не распознано / `CommandNotFoundException` | Установите: `winget install ngrok.ngrok`. Затем **перезапустите Cursor** (не только терминал) или обновите `$env:Path` в сессии; запасной вариант — `~\.local\bin\ngrok.exe` |
-| `ERR_NGROK_4018` / invalid authtoken | Повторите `ngrok config add-authtoken …` с токеном из dashboard |
-| `agent version is too old` / `ERR_NGROK_121` | `ngrok update`, затем снова `ngrok http 8000` |
-| `502 Bad Gateway` на ngrok-URL | Не запущен uvicorn на `:8000` |
-| Страница-предупреждение ngrok в браузере | На бесплатном плане — норма; для webhook-серверов (ЮKassa) обычно не мешает |
+| `ERR_NGROK_4018` / invalid authtoken               | Повторите `ngrok config add-authtoken …` с токеном из dashboard                                                                                                              |
+| `agent version is too old` / `ERR_NGROK_121`       | `ngrok update`, затем снова `ngrok http 8000`                                                                                                                                |
+| `502 Bad Gateway` на ngrok-URL                     | Не запущен uvicorn на `:8000`                                                                                                                                                |
+| Страница-предупреждение ngrok в браузере           | На бесплатном плане — норма; для webhook-серверов (ЮKassa) обычно не мешает                                                                                                  |
+
 
 ---
 
 ## 8. После каждого `git pull` — что обновлять
 
-| Изменилось в репо | Действие |
-|-------------------|----------|
-| `backend/requirements.txt` | `pip install -r requirements.txt` |
-| `frontend/package.json` | `npm install` |
-| `db/scripts/*.sql` | пересоздать/накатить схему (см. §3) |
-| `.env.example` | сравнить с своим `.env`, добавить новые ключи вручную |
+
+| Изменилось в репо           | Действие                                                               |
+| --------------------------- | ---------------------------------------------------------------------- |
+| `backend/requirements.txt`  | `pip install -r requirements.txt`                                      |
+| `frontend/package.json`     | `npm install`                                                          |
+| `db/scripts/*.sql`          | пересоздать/накатить схему (см. §3)                                    |
+| `.env.example`              | сравнить с своим `.env`, добавить новые ключи вручную                  |
 | только код backend/frontend | перезапустить uvicorn / `npm run dev` (с `--reload` API сам подхватит) |
+
 
 `.env` **не перезаписывается** при pull — его ведёшь только ты локально.
 
@@ -341,7 +355,7 @@ Forwarding   https://a1b2c3d4.ngrok-free.app -> http://localhost:8000
 
 ## 9. Частые проблемы
 
-### `ERR_CONNECTION_REFUSED` на http://127.0.0.1:5173
+### `ERR_CONNECTION_REFUSED` на [http://127.0.0.1:5173](http://127.0.0.1:5173)
 
 Не запущен frontend:
 
@@ -359,7 +373,7 @@ cd backend
 .\.venv\Scripts\uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Открой http://127.0.0.1:8000/api/v1/health/db — должно быть `"status":"ok"`.
+Открой [http://127.0.0.1:8000/api/v1/health/db](http://127.0.0.1:8000/api/v1/health/db) — должно быть `"status":"ok"`.
 
 ### `password authentication failed for user "qr_app"`
 
@@ -378,12 +392,14 @@ cd backend
 
 ## 10. Полезные ссылки
 
-| Документ | Содержание |
-|----------|------------|
-| [db/README.md](../db/README.md) | схема БД, файлы SQL |
-| [db/detal_logic_db.md](../db/detal_logic_db.md) | логика таблиц |
-| [db/dbeaver/GUIDE.md](../db/dbeaver/GUIDE.md) | DBeaver пошагово |
+
+| Документ                                          | Содержание              |
+| ------------------------------------------------- | ----------------------- |
+| [db/README.md](../db/README.md)                   | схема БД, файлы SQL     |
+| [db/detal_logic_db.md](../db/detal_logic_db.md)   | логика таблиц           |
+| [db/dbeaver/GUIDE.md](../db/dbeaver/GUIDE.md)     | DBeaver пошагово        |
 | [docs/DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md) | стек, архитектура, прод |
+
 
 ---
 

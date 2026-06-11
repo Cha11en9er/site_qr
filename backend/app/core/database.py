@@ -10,6 +10,11 @@ engine = create_async_engine(
     settings.database_url,
     echo=False,
     pool_pre_ping=True,
+    connect_args={
+        "server_settings": {
+            "search_path": f"{settings.postgres_schema},public",
+        }
+    },
 )
 
 AsyncSessionLocal = async_sessionmaker(

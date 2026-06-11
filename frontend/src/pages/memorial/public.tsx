@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useRoute, Link } from 'wouter';
 import { useMemorialStore, Memory } from '@/store/useMemorialStore';
-import { getDemoMemorial } from '@/data/demo-memorials';
+import { getDemoMemorial, isDemoMemorialId } from '@/data/demo-memorials';
 import {
   fetchMemorial,
   fetchPublicMemorial,
@@ -14,8 +14,7 @@ import { PersistedImage } from '@/components/PersistedImage';
 import { PersistedVideo } from '@/components/PersistedVideo';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
+import { MemorialMap } from '@/components/MemorialMap';
 import { Leaf, MapPin, Heart, Image as ImageIcon, Film } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -44,7 +43,7 @@ export default function PublicMemorial() {
           : await fetchPublicMemorial(id);
         setApiMemorial(memorialDtoToStore(dto, user?.id || 'public'));
       } catch {
-        setApiMemorial(null);
+        setApiMemorial(isDemoMemorialId(id) ? getDemoMemorial(id) ?? null : null);
       } finally {
         setLoading(false);
       }
@@ -55,8 +54,8 @@ export default function PublicMemorial() {
 
   const memorial = useMemo(() => {
     if (!id) return undefined;
-    if (getDemoMemorial(id)) return getDemoMemorial(id);
     if (apiMemorial) return apiMemorial;
+    if (getDemoMemorial(id)) return getDemoMemorial(id);
     return memorials.find((m) => m.id === id);
   }, [memorials, id, apiMemorial]);
 
@@ -165,19 +164,12 @@ export default function PublicMemorial() {
             <div className="bg-card p-2 rounded-2xl shadow-sm border">
               <p className="text-center mb-4 text-muted-foreground mt-2">{memorial.graveLocation.address}</p>
               <div className="h-64 sm:h-96 rounded-xl overflow-hidden relative z-0">
-                <MapContainer 
-                  center={[memorial.graveLocation.lat, memorial.graveLocation.lng]} 
-                  zoom={15} 
-                  style={{ height: '100%', width: '100%' }}
-                >
-                  <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; OpenStreetMap contributors'
-                  />
-                  <Marker position={[memorial.graveLocation.lat, memorial.graveLocation.lng]}>
-                    <Popup>{memorial.fullName}</Popup>
-                  </Marker>
-                </MapContainer>
+                <MemorialMap
+                  lat={memorial.graveLocation.lat}
+                  lng={memorial.graveLocation.lng}
+                  label={memorial.fullName}
+                  className="h-full w-full"
+                />
               </div>
             </div>
           </div>

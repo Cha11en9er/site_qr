@@ -1,11 +1,11 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_client_meta, get_current_user_out
+from app.api.deps import get_client_meta, get_current_user_id, get_current_user_out
 from app.core.database import get_db
-from app.models.user import User
 from app.schemas.auth import (
     AuthResponse,
     LoginRequest,
@@ -13,8 +13,9 @@ from app.schemas.auth import (
     MessageResponse,
     RegisterRequest,
     UserOut,
+    UserProfileUpdate,
 )
-from app.services.auth import login_user, register_user, revoke_refresh_token
+from app.services.auth import login_user, register_user, revoke_refresh_token, update_user_profile
 
 router = APIRouter()
 
@@ -28,16 +29,14 @@ async def register(
     if not body.accept_privacy:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Privacy policy consent is required",
+            detail="PRIVACY_CONSENT_REQUIRED",
         )
 
     user_agent, ip_address = get_client_meta(request)
     return await register_user(
         db,
-        email=body.email,
+        login=body.login,
         password=body.password,
-        full_name=body.full_name,
-        phone=body.phone,
         user_agent=user_agent,
         ip_address=ip_address,
     )
@@ -52,7 +51,7 @@ async def login(
     user_agent, ip_address = get_client_meta(request)
     return await login_user(
         db,
-        email=body.email,
+        login=body.login,
         password=body.password,
         user_agent=user_agent,
         ip_address=ip_address,
@@ -62,6 +61,15 @@ async def login(
 @router.get("/me", response_model=UserOut)
 async def me(current_user: Annotated[UserOut, Depends(get_current_user_out)]) -> UserOut:
     return current_user
+
+
+@router.patch("/me", response_model=UserOut)
+async def update_me(
+    body: UserProfileUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
+) -> UserOut:
+    return await update_user_profile(db, user_id=user_id, payload=body)
 
 
 @router.post("/logout", response_model=MessageResponse)

@@ -9,6 +9,7 @@ from jose import JWTError, jwt
 from app.core.config import get_settings
 
 PHONE_PATTERN = re.compile(r"^\+[0-9]{10,15}$")
+EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def normalize_phone(phone: str) -> str:
@@ -21,6 +22,26 @@ def normalize_phone(phone: str) -> str:
     if not PHONE_PATTERN.match(normalized):
         raise ValueError("INVALID_PHONE")
     return normalized
+
+
+def parse_email_login(login: str) -> str:
+    """Нормализованный email для входа и регистрации."""
+    value = login.strip().lower()
+    if not value:
+        raise ValueError("LOGIN_REQUIRED")
+    if not EMAIL_PATTERN.match(value):
+        raise ValueError("INVALID_LOGIN")
+    return value
+
+
+def parse_login(login: str) -> tuple[str | None, str | None]:
+    """Email или телефон (телефон — только в профиле, не при входе)."""
+    value = login.strip()
+    if not value:
+        raise ValueError("LOGIN_REQUIRED")
+    if "@" in value:
+        return parse_email_login(value), None
+    return None, normalize_phone(value)
 
 
 def hash_password(password: str) -> str:

@@ -1,12 +1,14 @@
--- =============================================================================
+﻿-- =============================================================================
 -- 03_users_auth.sql
 -- Пользователи, сессии, сброс пароля. Без дублирования email (citext + partial unique).
 -- =============================================================================
 
+SET search_path TO qr, public;
+
 CREATE TABLE users (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     role_id         SMALLINT     NOT NULL REFERENCES user_roles (id),
-    email           CITEXT       NOT NULL,
+    email           CITEXT,
     phone           VARCHAR(20),
     password_hash   VARCHAR(255) NOT NULL,
     full_name       VARCHAR(256),
@@ -19,13 +21,20 @@ CREATE TABLE users (
     deleted_at      TIMESTAMPTZ,
     CONSTRAINT chk_users_phone_format CHECK (
         phone IS NULL OR phone ~ '^\+[0-9]{10,15}$'
+    ),
+    CONSTRAINT chk_users_email_or_phone CHECK (
+        email IS NOT NULL OR phone IS NOT NULL
     )
 );
 
 -- Один email = один активный аккаунт (мягкое удаление не блокирует повторную регистрацию)
 CREATE UNIQUE INDEX uq_users_email_active
     ON users (email)
-    WHERE deleted_at IS NULL;
+    WHERE deleted_at IS NULL AND email IS NOT NULL;
+
+CREATE UNIQUE INDEX uq_users_phone_active
+    ON users (phone)
+    WHERE deleted_at IS NULL AND phone IS NOT NULL;
 
 CREATE INDEX idx_users_role_id ON users (role_id);
 CREATE INDEX idx_users_created_at ON users (created_at);

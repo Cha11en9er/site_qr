@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import re
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import HTTPException, UploadFile, status
+from fastapi import HTTPException, UploadFile
 
 from app.core.config import Settings
 
@@ -23,14 +24,21 @@ EXT_BY_MIME = {
     "video/quicktime": ".mov",
 }
 
+# Новый формат: YYYY-MM/{order_id|memorial_id}/{portrait|photos|videos}/{file}.ext
+# Legacy: memorials/{memorial_id}/...
+# Статические примеры: examples/{slug}/...
+STORAGE_KEY_PATTERNS = (
+    r"\d{4}-\d{2}/[0-9a-f-]{36}/(portrait|photos|videos)/[0-9a-f-]{36}\.[a-z0-9]+",
+    r"memorials/[0-9a-f-]{36}/[a-z]+/[0-9a-f-]{36}\.[a-z0-9]+",
+    r"examples/[a-z]+/[a-z0-9_-]+\.(jpg|jpeg|png|webp)",
+)
+
 
 def normalize_storage_key(key: str) -> str:
     cleaned = key.replace("\\", "/").strip("/")
     if ".." in cleaned.split("/"):
         raise HTTPException(status_code=400, detail="INVALID_STORAGE_KEY")
-    memorial_pattern = r"memorials/[0-9a-f-]{36}/[a-z]+/[0-9a-f-]{36}\.[a-z0-9]+"
-    demo_pattern = r"demos/[a-z0-9_-]+\.(jpg|jpeg|png|webp)"
-    if not re.fullmatch(memorial_pattern, cleaned) and not re.fullmatch(demo_pattern, cleaned):
+    if not any(re.fullmatch(pattern, cleaned) for pattern in STORAGE_KEY_PATTERNS):
         raise HTTPException(status_code=400, detail="INVALID_STORAGE_KEY")
     return cleaned
 
@@ -39,14 +47,29 @@ def absolute_path(settings: Settings, storage_key: str) -> Path:
     key = normalize_storage_key(storage_key)
     root = settings.media_root_path
     full = (root / key).resolve()
-    if not str(full).startswith(str(root)):
+    if not str(full).startswith(str(root.resolve())):
         raise HTTPException(status_code=400, detail="INVALID_STORAGE_KEY")
     return full
 
 
-def build_storage_key(memorial_id: uuid.UUID, media_folder: str, mime_type: str) -> str:
+def current_storage_month() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m")
+
+
+def build_storage_key(
+    shard_id: uuid.UUID,
+    media_folder: str,
+    mime_type: str,
+    *,
+    month: str | None = None,
+) -> str:
+    """Путь: YYYY-MM/{shard_id}/{portrait|photos|videos}/{uuid}.ext
+
+    shard_id — order_id, если мемориал привязан к QR заказа, иначе memorial_id.
+    """
+    ym = month or current_storage_month()
     ext = EXT_BY_MIME.get(mime_type, ".bin")
-    return f"memorials/{memorial_id}/{media_folder}/{uuid.uuid4()}{ext}"
+    return f"{ym}/{shard_id}/{media_folder}/{uuid.uuid4()}{ext}"
 
 
 async def save_upload_file(

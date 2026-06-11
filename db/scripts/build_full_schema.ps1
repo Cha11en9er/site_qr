@@ -1,10 +1,9 @@
-# Пересобрать 00_full_schema.sql из частей 01–13
+# Пересобрать 00_full_schema.sql из частей 01–09
 $root = $PSScriptRoot
 $out = Join-Path $root "00_full_schema.sql"
 $names = @(
-    "01_extensions.sql","02_lookups.sql","03_users_auth.sql","04_orders.sql",
-    "05_payments.sql","06_qr_codes.sql","07_memorials.sql","08_media.sql",
-    "09_reviews.sql","10_system.sql","11_functions_triggers.sql","12_seed.sql","13_grants.sql"
+    "01_init.sql","02_lookups.sql","03_users_auth.sql","04_commerce.sql",
+    "05_content.sql","06_system.sql","07_logic.sql","08_seed.sql","09_grants.sql"
 )
 $header = @"
 -- =============================================================================

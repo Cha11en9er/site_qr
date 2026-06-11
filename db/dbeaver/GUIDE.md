@@ -49,19 +49,15 @@
 Если удобнее по шагам, выполняйте по порядку (каждый — Alt+X):
 
 ```
-01_extensions.sql
+01_init.sql
 02_lookups.sql
 03_users_auth.sql
-04_orders.sql
-05_payments.sql
-06_qr_codes.sql
-07_memorials.sql
-08_media.sql
-09_reviews.sql
-10_system.sql
-11_functions_triggers.sql
-12_seed.sql
-13_grants.sql
+04_commerce.sql
+05_content.sql
+06_system.sql
+07_logic.sql
+08_seed.sql
+09_grants.sql
 ```
 
 ---
@@ -71,12 +67,12 @@
 Подключены к `qr_pamyat` → **SQL Editor** → вставьте и выполните:
 
 ```sql
-SELECT count(*) AS packages FROM package_types;    -- ожидается 3
+SELECT count(*) AS packages FROM qr.package_types;    -- ожидается 3
 SELECT count(*) AS tables FROM information_schema.tables
-WHERE table_schema = 'public';                     -- ожидается ~25
+WHERE table_schema = 'qr';                             -- ожидается ~25
 ```
 
-В **Database Navigator** → qr_pamyat → Schemas → public → Tables — список таблиц.
+В **Database Navigator** → qr_pamyat → Schemas → **qr** → Tables — список таблиц.
 
 ---
 

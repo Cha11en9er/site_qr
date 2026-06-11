@@ -7,6 +7,8 @@ import {
   mapApiUser,
   meRequest,
   registerRequest,
+  updateProfileRequest,
+  UserProfileUpdatePayload,
 } from "@/lib/auth-api";
 import { ApiError } from "@/lib/api";
 
@@ -15,14 +17,15 @@ interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
   isHydrating: boolean;
-  login: (email: string, password: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  login: (login: string, password: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   register: (payload: {
-    name: string;
-    email: string;
-    phone: string;
+    login: string;
     password: string;
     acceptPrivacy: boolean;
   }) => Promise<{ ok: true } | { ok: false; error: string }>;
+  updateProfile: (
+    payload: UserProfileUpdatePayload,
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
   logout: () => Promise<void>;
   hydrateSession: () => Promise<void>;
   setSession: (user: AppUser, accessToken: string, refreshToken: string) => void;
@@ -31,8 +34,13 @@ interface AuthState {
 function authErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.detail === "INVALID_CREDENTIALS") return "Неверный email или пароль";
-    if (error.detail === "EMAIL_ALREADY_EXISTS") return "Пользователь с таким email уже существует";
+    if (error.detail === "LOGIN_ALREADY_EXISTS") return "Пользователь с такой почтой уже существует";
+    if (error.detail === "EMAIL_ALREADY_EXISTS") return "Этот email уже занят";
+    if (error.detail === "PHONE_ALREADY_EXISTS") return "Этот телефон уже занят";
+    if (error.detail === "INVALID_LOGIN") return "Введите корректный email";
+    if (error.detail === "PRIVACY_CONSENT_REQUIRED") return "Необходимо согласие с политикой конфиденциальности";
     if (error.detail.includes("Phone")) return "Телефон укажите в формате +79001234567";
+    if (error.detail === "EMAIL_OR_PHONE_REQUIRED") return "Укажите email или телефон";
     return error.detail;
   }
   return "Не удалось выполнить запрос. Проверьте, что API запущен.";
@@ -65,9 +73,9 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      login: async (email, password) => {
+      login: async (login, password) => {
         try {
-          const response = await loginRequest({ email, password });
+          const response = await loginRequest({ login, password });
           set({
             user: mapApiUser(response.user),
             accessToken: response.tokens.access_token,
@@ -79,13 +87,11 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      register: async ({ name, email, phone, password, acceptPrivacy }) => {
+      register: async ({ login, password, acceptPrivacy }) => {
         try {
           const response = await registerRequest({
-            email,
+            login,
             password,
-            full_name: name,
-            phone,
             accept_privacy: acceptPrivacy,
           });
           set({
@@ -93,6 +99,20 @@ export const useAuthStore = create<AuthState>()(
             accessToken: response.tokens.access_token,
             refreshToken: response.tokens.refresh_token,
           });
+          return { ok: true };
+        } catch (error) {
+          return { ok: false, error: authErrorMessage(error) };
+        }
+      },
+
+      updateProfile: async (payload) => {
+        const token = get().accessToken;
+        if (!token) {
+          return { ok: false, error: "Требуется авторизация" };
+        }
+        try {
+          const user = await updateProfileRequest(token, payload);
+          set({ user: mapApiUser(user) });
           return { ok: true };
         } catch (error) {
           return { ok: false, error: authErrorMessage(error) };
