@@ -31,5 +31,5 @@ tmp/
 
 Asset-Manager/
 
-# Docker volumes (local)
-data/
+# Docker volumes (local) — только корень, не frontend/src/data/
+/data/

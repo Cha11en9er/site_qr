@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useRoute, Link } from 'wouter';
-import { useMemorialStore, Memory } from '@/store/useMemorialStore';
+import { useMemorialStore, Memory, UploadedFile } from '@/store/useMemorialStore';
 import { getDemoMemorial, isDemoMemorialId } from '@/data/demo-memorials';
 import {
   fetchMemorial,
@@ -86,7 +86,7 @@ export default function PublicMemorial() {
 
   const birthDate = memorial.birthDate ? format(new Date(memorial.birthDate), 'dd MMMM yyyy', { locale: ru }) : '';
   const deathDate = memorial.deathDate ? format(new Date(memorial.deathDate), 'dd MMMM yyyy', { locale: ru }) : '';
-  const approvedMemories = memorial.memories.filter(m => m.approved);
+  const approvedMemories = memorial.memories.filter((m: Memory) => m.approved);
 
   const handleAddMemory = (e: React.FormEvent) => {
     e.preventDefault();
@@ -182,7 +182,7 @@ export default function PublicMemorial() {
               <ImageIcon className="text-primary w-6 h-6" /> Фотографии
             </h2>
             <div className="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
-              {memorial.photos.map((photo, i) => (
+              {memorial.photos.map((photo: UploadedFile, i: number) => (
                 <div key={i} className="break-inside-avoid rounded-xl overflow-hidden relative group">
                   <PersistedImage src={photo.url} alt="" className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-105" />
                   <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -199,7 +199,7 @@ export default function PublicMemorial() {
               <Film className="text-primary w-6 h-6" /> Видео
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {memorial.videos.map((video, i) => (
+              {memorial.videos.map((video: UploadedFile, i: number) => (
                 <div key={i} className="rounded-xl overflow-hidden bg-black aspect-video">
                   <PersistedVideo src={video.url} className="w-full h-full object-contain" />
                 </div>
@@ -218,7 +218,7 @@ export default function PublicMemorial() {
             {approvedMemories.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">Пока нет воспоминаний. Станьте первым.</p>
             ) : (
-              approvedMemories.map((memory) => (
+              approvedMemories.map((memory: Memory) => (
                 <Card key={memory.id} className="bg-card border-none shadow-sm">
                   <CardContent className="pt-6">
                     <p className="text-foreground/90 leading-relaxed mb-4 whitespace-pre-line">{memory.text}</p>

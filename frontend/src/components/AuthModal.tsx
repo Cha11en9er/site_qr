@@ -86,48 +86,6 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
     toast.error(result.error);
   };
 
-  const emailField = (form: typeof loginForm | typeof registerForm) => (
-    <FormField
-      control={form.control}
-      name="login"
-      render={({ field }) => (
-        <FormItem>
-          <FormLabel>Почта</FormLabel>
-          <FormControl>
-            <Input
-              type="email"
-              placeholder="email@example.com"
-              autoComplete="email"
-              {...field}
-            />
-          </FormControl>
-          <FormMessage />
-        </FormItem>
-      )}
-    />
-  );
-
-  const passwordField = (form: typeof loginForm | typeof registerForm) => (
-    <FormField
-      control={form.control}
-      name="password"
-      render={({ field }) => (
-        <FormItem>
-          <FormLabel>Пароль</FormLabel>
-          <FormControl>
-            <Input
-              type="password"
-              placeholder="••••"
-              autoComplete={tab === "login" ? "current-password" : "new-password"}
-              {...field}
-            />
-          </FormControl>
-          <FormMessage />
-        </FormItem>
-      )}
-    />
-  );
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
@@ -147,8 +105,42 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
           <TabsContent value="login">
             <Form {...loginForm}>
               <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4 mt-4">
-                {emailField(loginForm)}
-                {passwordField(loginForm)}
+                <FormField
+                  control={loginForm.control}
+                  name="login"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Почта</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="email@example.com"
+                          autoComplete="email"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={loginForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Пароль</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          placeholder="••••"
+                          autoComplete="current-password"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
                   {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Войти"}
                 </Button>
@@ -159,8 +151,42 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
           <TabsContent value="register">
             <Form {...registerForm}>
               <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-4 mt-4">
-                {emailField(registerForm)}
-                {passwordField(registerForm)}
+                <FormField
+                  control={registerForm.control}
+                  name="login"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Почта</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="email@example.com"
+                          autoComplete="email"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={registerForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Пароль</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          placeholder="••••"
+                          autoComplete="new-password"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField
                   control={registerForm.control}
                   name="acceptPrivacy"

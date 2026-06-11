@@ -8,6 +8,32 @@
 
 Связанные документы: [PAYMENT_SETUP.md](PAYMENT_SETUP.md), [LOCAL_SETUP.md](LOCAL_SETUP.md) (локально — там venv + npm).
 
+### Ключевые файлы в `/opt/site_qr`
+
+| Файл / папка | В git? | Назначение |
+|--------------|--------|------------|
+| `.env` | **нет** | Секреты — создаёте на сервере вручную |
+| `docker-compose.staging.yml` | да | Запуск стейджинга (корень проекта) |
+| `deploy/Dockerfile.staging-web` | да | Сборка nginx + фронт |
+| `db/scripts/00_full_schema.sql` | да | Схема БД — накатывается при первом старте postgres |
+| `db/scripts/build_full_schema.ps1` | да | **Сборщик** схемы (Windows, см. ниже) |
+| `uploads/` | да | Демо-картинки `examples/` + пользовательские загрузки |
+
+**Сборщик схемы БД** — `db/scripts/build_full_schema.ps1` (только на Windows при разработке).
+
+Склеивает части `01_init.sql` … `09_grants.sql` → один файл `db/scripts/00_full_schema.sql`.
+
+На сервере сборщик **не запускают** — в git уже лежит готовый `00_full_schema.sql`, его подхватывает Docker.
+
+```powershell
+# только на Windows, после правки db/scripts/01–09
+cd C:\repos\YouDo\site_qr\db\scripts
+.\build_full_schema.ps1
+git add 00_full_schema.sql
+git commit -m "Rebuild full schema"
+git push
+```
+
 ---
 
 ## Шаг 1. Проверки
@@ -220,7 +246,15 @@ git clone https://github.com/Cha11en9er/site_qr.git site_qr
 cd site_qr
 ```
 
-> **Важно:** на GitHub должны быть `docker-compose.staging.yml` (в корне) и `deploy/Dockerfile.staging-web`. Если ещё не пушили с Windows — сначала `git push`, либо [§3.2](#32-альтернатива-архив-с-windows).
+Если репозиторий уже есть — обновление:
+
+```bash
+cd /opt/site_qr
+```
+
+```bash
+git pull
+```
 
 ---
 
@@ -250,16 +284,16 @@ cd /opt/site_qr
 
 ---
 
-### 3.3 Проверить, что файлы деплоя на месте
+### 3.3 Проверить файлы после `git pull`
 
 ```bash
-ls docker-compose.staging.yml
+ls docker-compose.staging.yml .env
 ```
 
 **Ожидается:**
 
 ```text
-docker-compose.staging.yml
+.env  docker-compose.staging.yml
 ```
 
 ```bash
@@ -272,13 +306,19 @@ ls deploy/Dockerfile.staging-web
 deploy/Dockerfile.staging-web
 ```
 
-**Если `No such file`** — вернитесь к §3.2 или сделайте `git push` с Windows и `git pull` на сервере.
+```bash
+ls uploads/examples/
+```
+
+**Ожидается:** папки `kuprin`, `mendeleev`, `pushkin` (демо-картинки из git).
+
+**Если `docker-compose.staging.yml` нет** — на Windows не сделали `git push`; повторите `git pull` или [§3.2](#32-альтернатива-архив-с-windows).
 
 ---
 
 ## Шаг 4. Файлы проекта
 
-Файлы, которых **нет в git**: `.env` (секреты). Остальное — в репозитории.
+В git уже есть код, `uploads/examples/`, схема БД. На сервере вручную создаётся только **`.env`**.
 
 ---
 
@@ -336,15 +376,7 @@ chmod 600 .env
 
 ---
 
-### 4.4 Папка для загрузок
-
-```bash
-mkdir -p uploads
-```
-
----
-
-### 4.5 Проверить `.env` перед запуском
+### 4.4 Проверить `.env` перед запуском
 
 Файл должен лежать в **корне** `/opt/site_qr/.env`, не в `deploy/`.
 
@@ -375,8 +407,11 @@ grep '^POSTGRES_PASSWORD=' .env | cut -d= -f1
 | Кавычки с пробелом | `POSTGRES_PASSWORD=" mypass"` | Без лишних пробелов |
 | Файл не там | `.env` не в корне | Должен быть `/opt/site_qr/.env` (рядом с `docker-compose.staging.yml`) |
 | Скопировали с Windows | `^M` в конце строк | `sed -i 's/\r$//' .env` |
+| `git pull` — нет compose | файл не запушен с Windows | `git push` на Windows, снова `git pull` |
 
-> **Роль `qr_app` вручную создавать не нужно.** Контейнер `postgres` сам создаёт пользователя `POSTGRES_USER` с паролем `POSTGRES_PASSWORD` и накатывает схему из `db/scripts/00_full_schema.sql` при первом старте.
+> **Роль `qr_app` вручную создавать не нужно.** Контейнер `postgres` сам создаёт пользователя и накатывает `db/scripts/00_full_schema.sql` при первом старте.
+
+> **Папку `uploads/` создавать не нужно** — она приходит из git (`uploads/examples/`). Новые фото пользователей пишутся в ту же папку при работе сайта.
 
 В `.env` с локальной машины замените хост БД в `DATABASE_URL` — compose подставит `postgres` сам, но для ясности:
 
@@ -390,14 +425,39 @@ DATABASE_URL=postgresql+asyncpg://qr_app:ВАШ_ПАРОЛЬ@postgres:5432/qr_pa
 
 ## Шаг 5. Зависимости и запуск
 
-На сервере **не нужны** `python -m venv` и `npm install` вручную.
+На сервере **не нужны** Python, venv, Node.js и npm в системе — их нет и это нормально.
 
-| Что | Где ставится |
-|-----|--------------|
-| `pip install` (backend) | внутри образа `api` при сборке |
-| `npm install` + `npm run build` (frontend) | внутри образа `web` при сборке |
+| Что | Где выполняется |
+|-----|-----------------|
+| `pip install` (backend) | внутри Docker-образа `api` |
+| `npm install` + `npm run build` (frontend) | внутри Docker-образа `web` (`node:20-alpine`) |
 | PostgreSQL 16 | контейнер `postgres` |
-| Схема БД | автоматически при первом старте postgres |
+| Схема БД | `db/scripts/00_full_schema.sql` при первом старте |
+
+### 5.0 Проверка сборки фронта (на Windows, перед push)
+
+Если `docker compose up --build` падает на `npm run build` — ошибка в коде, не в отсутствии npm на VPS.
+
+```powershell
+cd C:\repos\YouDo\site_qr\frontend
+npm run build
+```
+
+**Ожидается:** `✓ built in …` без `error TS…`.
+
+Обязательно в git должен быть `frontend/src/data/demo-memorials.ts` — без него сборка падает с `Cannot find module '@/data/demo-memorials'`.
+
+```powershell
+git add frontend/src/data/demo-memorials.ts
+git commit -m "Add demo memorials data for frontend build"
+git push
+```
+
+На сервере после push:
+
+```bash
+git pull
+```
 
 ---
 
@@ -515,7 +575,7 @@ docker compose -f docker-compose.staging.yml exec postgres psql -U qr_app -d qr_
 ls -la /opt/site_qr/uploads/
 ```
 
-**Ожидается:** появились файлы или подпапки `memorials/...`.
+**Ожидается:** новые файлы рядом с `examples/` (например `memorials/...` или `YYYY-MM/...`).
 
 ---
 
@@ -594,12 +654,14 @@ docker compose -f docker-compose.staging.yml up -d --build
 |---------|---------|
 | Сайт не открывается снаружи | §1.6 → `ufw allow 80/tcp` |
 | `docker-compose.staging.yml` нет | §3.2 архив или `git push` + clone |
-| `POSTGRES_PASSWORD is missing` | `.env` в корне `/opt/site_qr`, §4.5; запуск: `-f docker-compose.staging.yml` |
+| `POSTGRES_PASSWORD is missing` | `.env` в корне `/opt/site_qr`, §4.4; запуск: `-f docker-compose.staging.yml` |
 | `package_types_count` не 3 | `docker compose -f docker-compose.staging.yml logs postgres`, при необходимости `down -v` и снова `up --build` |
 | CORS в браузере | В `.env` точно `CORS_ORIGINS=http://87.251.86.53` |
 | `YOOKASSA_NOT_CONFIGURED` | Заполнить `YOOKASSA_SHOP_ID` и `YOOKASSA_SECRET_KEY` в `.env`, перезапуск §5.3 |
 | Оплата прошла, заказ не `paid` | §6.6 часть B — ngrok для webhook |
-| Фото не появляются в `uploads/` | `mkdir -p uploads`, перезапуск `api` |
+| Фото не появляются в `uploads/` | Проверить `ls uploads/`, права на папку, перезапуск `api` |
+| `npm run build` failed в Docker | Ошибки TypeScript в коде; на Windows `npm run build`, исправить, `git push`, `git pull`, снова §5.1 |
+| `Cannot find module demo-memorials` | Не запушен `frontend/src/data/demo-memorials.ts` |
 
 ---
 
@@ -608,9 +670,10 @@ docker compose -f docker-compose.staging.yml up -d --build
 ```text
 □ 1.1–1.9 проверки пройдены
 □ 2.4 ufw allow 80/tcp
-□ 3.1 git clone в /opt/site_qr
-□ 4.1–4.4 .env создан и заполнен
-□ 4.5 .env проверен (POSTGRES_PASSWORD не пустой)
+□ 3.1 git clone (или git pull) → /opt/site_qr
+□ 3.3 docker-compose.staging.yml + uploads/examples/ на месте
+□ 4.1–4.3 .env создан (chmod 600)
+□ 4.4 POSTGRES_PASSWORD не пустой
 □ 5.1 docker compose -f docker-compose.staging.yml up -d --build
 □ 6.1–6.3 health + сайт в браузере
 □ 6.4 регистрация видна в БД
